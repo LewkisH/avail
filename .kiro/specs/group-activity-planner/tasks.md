@@ -7,8 +7,8 @@
   - Configure ESLint and Prettier
   - _Requirements: 7, 8_
 
-- [ ] 2. Set up PostgreSQL database and ORM
-  - [ ] 2.1 Configure database connection for dev and prod environments
+- [x] 2. Set up PostgreSQL database and ORM
+  - [x] 2.1 Configure database connection for dev and prod environments
     - Set up local PostgreSQL database for development (Docker or local install)
     - Set up Vercel Postgres or Neon database for production
     - Create DATABASE_URL environment variable in .env.local for dev
@@ -18,7 +18,7 @@
     - Add .env.local to .gitignore
     - _Requirements: 8_
   
-  - [ ] 2.2 Define Prisma schema for core models
+  - [x] 2.2 Define Prisma schema for core models
     - Create User model with Clerk ID as primary key
     - Create UserInterest model with user relationship
     - Create UserBudget model with EUR default currency
@@ -27,7 +27,7 @@
     - Create GroupInvitation model with status enum
     - _Requirements: 1, 2, 3, 8_
   
-  - [ ] 2.3 Define Prisma schema for calendar and event models
+  - [x] 2.3 Define Prisma schema for calendar and event models
     - Create CalendarEvent model with unified event interface fields
     - Create GoogleCalendarToken model for OAuth token storage
     - Create ExternalEvent model with EUR default currency
@@ -35,7 +35,7 @@
     - Add appropriate indexes for query optimization
     - _Requirements: 4, 5, 6, 7, 8_
   
-  - [ ] 2.4 Run initial database migration
+  - [x] 2.4 Run initial database migration
     - Generate Prisma migration files
     - Apply migration to local dev database
     - Test migration on production database (or staging)
