@@ -44,15 +44,15 @@
     - Add migration scripts to package.json
     - _Requirements: 8_
 
-- [ ] 3. Integrate Clerk authentication
-  - [ ] 3.1 Set up Clerk in Next.js
+- [x] 3. Integrate Clerk authentication
+  - [x] 3.1 Set up Clerk in Next.js
     - Install @clerk/nextjs package
     - Add Clerk environment variables (NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY)
     - Configure ClerkProvider in root layout
     - Create middleware.ts for route protection
     - _Requirements: 1_
   
-  - [ ] 3.2 Implement Clerk webhook handler
+  - [x] 3.2 Implement Clerk webhook handler
     - Create API route at /api/webhooks/clerk
     - Verify webhook signature using CLERK_WEBHOOK_SECRET
     - Handle user.created event to create User record in database
@@ -60,14 +60,14 @@
     - Handle user.deleted event to clean up user data
     - _Requirements: 1_
   
-  - [ ] 3.3 Create authentication utilities
+  - [x] 3.3 Create authentication utilities
     - Create lib/auth.ts with helper functions
     - Implement getCurrentUser() to fetch authenticated user
     - Implement requireAuth() middleware for API routes
     - Create user sync utility functions
     - _Requirements: 1_
   
-  - [ ] 3.4 Build authentication UI components
+  - [x] 3.4 Build authentication UI components
     - Create sign-in page using Clerk components
     - Create sign-up page using Clerk components
     - Add user profile button with sign-out functionality
