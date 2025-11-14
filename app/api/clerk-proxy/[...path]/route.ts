@@ -20,7 +20,10 @@ function getClerkFrontendApi() {
   return `https://${decoded}`;
 }
 
-async function handleRequest(request: NextRequest, params: { path: string[] }) {
+async function handleRequest(
+  request: NextRequest,
+  params: { path: string[] }
+) {
   const path = params.path.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
   const clerkBaseUrl = getClerkFrontendApi();
@@ -45,7 +48,10 @@ async function handleRequest(request: NextRequest, params: { path: string[] }) {
   const responseHeaders = new Headers(response.headers);
   // Ensure CORS headers are set
   responseHeaders.set("Access-Control-Allow-Origin", "*");
-  responseHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  responseHeaders.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
   responseHeaders.set("Access-Control-Allow-Headers", "*");
 
   return new Response(response.body, {
@@ -57,30 +63,34 @@ async function handleRequest(request: NextRequest, params: { path: string[] }) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return handleRequest(request, params);
+  const resolvedParams = await params;
+  return handleRequest(request, resolvedParams);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return handleRequest(request, params);
+  const resolvedParams = await params;
+  return handleRequest(request, resolvedParams);
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return handleRequest(request, params);
+  const resolvedParams = await params;
+  return handleRequest(request, resolvedParams);
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return handleRequest(request, params);
+  const resolvedParams = await params;
+  return handleRequest(request, resolvedParams);
 }
 
 export async function OPTIONS(request: NextRequest) {
