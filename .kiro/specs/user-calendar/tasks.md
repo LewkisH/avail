@@ -7,7 +7,7 @@
   - Include timezone handling and date range filtering
   - _Requirements: 1.3, 2.5, 3.5, 4.3_
 
-- [ ] 2. Create API routes for time slot management
+- [x] 2. Create API routes for time slot management
   - Implement `GET /api/calendar/timeslots` route to fetch user time slots with date range query params
   - Implement `POST /api/calendar/timeslots` route to create new time slots
   - Implement `PUT /api/calendar/timeslots/[id]` route to update existing time slots
@@ -17,14 +17,14 @@
   - Implement error handling with standardized error responses
   - _Requirements: 2.1, 2.5, 2.6, 3.1, 3.5, 3.6, 4.1, 4.3_
 
-- [ ] 3. Create calendar page component
+- [x] 3. Create calendar page component
   - Create `app/calendar/page.tsx` as a Server Component
   - Add authentication check and redirect if not authenticated
   - Wrap content in `ProtectedLayout` component
   - Render `CalendarView` client component
   - _Requirements: 1.3_
 
-- [ ] 4. Implement calendar view component
+- [x] 4. Implement calendar view component
   - Create `components/calendar/calendar-view.tsx` as a Client Component
   - Implement state management for time slots using React hooks
   - Create calendar grid layout with day/week view toggle
@@ -35,7 +35,7 @@
   - Add loading and error states
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 5.2_
 
-- [ ] 5. Create time slot dialog component
+- [x] 5. Create time slot dialog component
   - Create `components/calendar/time-slot-dialog.tsx` for add/edit functionality
   - Implement form using React Hook Form with Zod validation
   - Add fields: title (required), start time (required), end time (required), description (optional)
@@ -49,7 +49,7 @@
   - Use Shadcn Dialog component with mobile-responsive styling
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 5.1, 5.3, 5.4_
 
-- [ ] 6. Create delete confirmation dialog component
+- [x] 6. Create delete confirmation dialog component
   - Create `components/calendar/delete-time-slot-dialog.tsx`
   - Display time slot details and confirmation message
   - Add "Cancel" and "Delete" buttons with appropriate styling
@@ -59,7 +59,7 @@
   - Display error toast on failure
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 7. Implement mobile-friendly interactions
+- [x] 7. Implement mobile-friendly interactions
   - Ensure all interactive elements have minimum 44x44px touch targets
   - Add touch-friendly button sizing and spacing
   - Implement responsive text sizing (no horizontal scroll needed)
@@ -68,7 +68,7 @@
   - Test touch interactions on time slot cards (tap to edit, delete button)
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 8. Update navigation to include calendar tab
+- [x] 8. Update navigation to include calendar tab
   - Add "Calendar" link to navigation in `components/protected-layout.tsx`
   - Position between "Groups" and "Profile" links
   - Use consistent styling with existing navigation links
