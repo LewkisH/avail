@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Create duration slider component
+- [x] 1. Create duration slider component
   - Create new file `components/calendar/duration-slider.tsx`
   - Implement slider with range input (15 minutes to 2880 minutes)
   - Add real-time value display showing formatted duration
@@ -9,7 +9,7 @@
   - Style for mobile touch targets (minimum 44px height)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-- [ ] 2. Refactor TimeSlotDialog to use separate date and time inputs
+- [x] 2. Refactor TimeSlotDialog to use separate date and time inputs
   - Replace datetime-local inputs with separate date (type="date") and time (type="time") inputs
   - Update form schema to use date, startTime, and duration fields instead of startTime and endTime
   - Implement calculateEndTime function to derive end time from start time and duration
@@ -19,7 +19,7 @@
   - Add validation to prevent past date selection
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 3. Add duration preset buttons to TimeSlotDialog
+- [x] 3. Add duration preset buttons to TimeSlotDialog
   - Create array of duration presets (30min, 1hr, 2hrs, 3hrs, 4hrs)
   - Render preset buttons in a horizontal scrollable container
   - Implement preset selection that updates duration field

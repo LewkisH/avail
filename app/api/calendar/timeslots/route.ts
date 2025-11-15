@@ -54,8 +54,12 @@ export async function GET(request: NextRequest) {
 
     // Default to current week if no date range provided
     const now = new Date();
-    const startDate = startParam ? new Date(startParam) : new Date(now.setDate(now.getDate() - 7));
-    const endDate = endParam ? new Date(endParam) : new Date(now.setDate(now.getDate() + 14));
+    const startDate = startParam 
+      ? new Date(startParam) 
+      : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const endDate = endParam 
+      ? new Date(endParam) 
+      : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     // Validate date range
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {

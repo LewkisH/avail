@@ -299,9 +299,8 @@ export class GroupAvailabilityService {
   ) {
     const { groupId, date } = params;
 
-    // Normalize date to start of day
+    // Date is already in UTC from the API layer, use it as-is
     const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -386,9 +385,8 @@ export class GroupAvailabilityService {
   static async getGroupAvailability(params: GetAvailabilityParams) {
     const { groupId, date, userId } = params;
 
-    // Normalize date to start of day
+    // Date is already in UTC from the API layer, use it as-is
     const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
 
     try {
       // Fetch availability windows for this group and date
