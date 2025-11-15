@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TimeInput } from "@/components/ui/time-input";
 import { toast } from 'sonner';
 import { getUserTimezone } from '@/lib/utils/timezone';
 import { DurationSlider } from '@/components/calendar/duration-slider';
@@ -222,11 +223,13 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-2">
-          <DialogTitle className="text-lg sm:text-xl">{isEditMode ? 'Edit Time Slot' : 'Add Time Slot'}</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
+            {isEditMode ? "Edit Time Slot" : "Add Time Slot"}
+          </DialogTitle>
           <DialogDescription className="text-sm">
             {isEditMode
-              ? 'Update your available time slot details'
-              : 'Add a new time slot to your calendar'}
+              ? "Update your available time slot details"
+              : "Add a new time slot to your calendar"}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -257,7 +260,9 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Description (Optional)</FormLabel>
+                    <FormLabel className="text-sm font-medium">
+                      Description (Optional)
+                    </FormLabel>
                     <FormControl>
                       <textarea
                         placeholder="Add any additional details..."
@@ -274,7 +279,9 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
 
             {/* Date & Time Section */}
             <div className="space-y-4 pt-2 border-t">
-              <h3 className="text-sm font-semibold text-foreground">Date & Time</h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                Date & Time
+              </h3>
 
               <FormField
                 control={form.control}
@@ -300,10 +307,11 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                 name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Start Time</FormLabel>
+                    <FormLabel className="text-sm font-medium">
+                      Start Time
+                    </FormLabel>
                     <FormControl>
-                      <Input
-                        type="time"
+                      <TimeInput
                         {...field}
                         disabled={form.formState.isSubmitting}
                         className="min-h-[44px] text-base"
@@ -317,14 +325,18 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
 
             {/* Duration Section */}
             <div className="space-y-4 pt-2 border-t">
-              <h3 className="text-sm font-semibold text-foreground">Duration</h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                Duration
+              </h3>
 
               <FormField
                 control={form.control}
                 name="duration"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Quick Select</FormLabel>
+                    <FormLabel className="text-sm font-medium">
+                      Quick Select
+                    </FormLabel>
 
                     {/* Duration preset buttons */}
                     <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
@@ -332,7 +344,11 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                         <Button
                           key={preset.minutes}
                           type="button"
-                          variant={selectedPreset === preset.minutes ? 'default' : 'outline'}
+                          variant={
+                            selectedPreset === preset.minutes
+                              ? "default"
+                              : "outline"
+                          }
                           size="sm"
                           onClick={() => handlePresetSelect(preset.minutes)}
                           disabled={form.formState.isSubmitting}
@@ -345,7 +361,9 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
 
                     {/* Duration slider */}
                     <div className="pt-4 space-y-2">
-                      <FormLabel className="text-sm font-medium">Adjust Duration</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        Adjust Duration
+                      </FormLabel>
                       <DurationSlider
                         value={field.value}
                         onChange={(value) => {
@@ -361,31 +379,29 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                     </div>
 
                     {/* End time display */}
-                    {form.watch('date') && form.watch('startTime') && (
+                    {form.watch("date") && form.watch("startTime") && (
                       <div className="mt-4 p-3 bg-muted rounded-md">
                         <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">End time:</span>{' '}
+                          <span className="font-medium">End time:</span>{" "}
                           {(() => {
                             const { endTime, endDate } = calculateEndTime(
-                              form.watch('date'),
-                              form.watch('startTime'),
+                              form.watch("date"),
+                              form.watch("startTime"),
                               field.value
                             );
-                            const startDate = form.watch('date');
+                            const startDate = form.watch("date");
 
-                            // Format time in 12-hour format
-                            const [hours, minutes] = endTime.split(':').map(Number);
-                            const period = hours >= 12 ? 'PM' : 'AM';
-                            const displayHours = hours % 12 || 12;
-                            const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                            // Format time in 24-hour format
+                            const formattedTime = endTime;
 
                             // Show date if it differs from start date (multi-day slot)
                             if (endDate !== startDate) {
                               const endDateObj = new Date(endDate);
-                              const formattedDate = endDateObj.toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              });
+                              const formattedDate =
+                                endDateObj.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                });
                               return `${formattedTime} (${formattedDate})`;
                             }
 
@@ -394,21 +410,25 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                         </p>
                         {(() => {
                           const { endDate } = calculateEndTime(
-                            form.watch('date'),
-                            form.watch('startTime'),
+                            form.watch("date"),
+                            form.watch("startTime"),
                             field.value
                           );
-                          const startDate = form.watch('date');
+                          const startDate = form.watch("date");
 
                           // Show multi-day indicator if slot spans multiple days
                           if (endDate !== startDate) {
                             const startDateObj = new Date(startDate);
                             const endDateObj = new Date(endDate);
-                            const daysDiff = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+                            const daysDiff = Math.ceil(
+                              (endDateObj.getTime() - startDateObj.getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            );
 
                             return (
                               <p className="text-xs text-muted-foreground mt-2 italic">
-                                This time slot spans {daysDiff} {daysDiff === 1 ? 'day' : 'days'}
+                                This time slot spans {daysDiff}{" "}
+                                {daysDiff === 1 ? "day" : "days"}
                               </p>
                             );
                           }
@@ -434,18 +454,18 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={form.formState.isSubmitting}
                 className="min-h-[44px] flex-1 sm:flex-none sm:min-w-[100px]"
               >
                 {form.formState.isSubmitting
                   ? isEditMode
-                    ? 'Updating...'
-                    : 'Creating...'
+                    ? "Updating..."
+                    : "Creating..."
                   : isEditMode
-                  ? 'Update'
-                  : 'Create'}
+                    ? "Update"
+                    : "Create"}
               </Button>
             </DialogFooter>
           </form>

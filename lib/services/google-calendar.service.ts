@@ -353,11 +353,11 @@ export class GoogleCalendarService {
     const googleEvents = response.data.items || [];
     console.log(`[Sync] Found ${googleEvents.length} events in Google Calendar`);
 
-    // Fetch existing Avails events with source='google'
+    // Fetch existing Avails events with sourceId (includes both manual and google sourced events)
     const availsEvents = await prisma.calendarEvent.findMany({
       where: {
         userId,
-        source: EventSource.google,
+        sourceId: { not: null },
         startTime: { gte: startDate },
         endTime: { lte: endDate },
       },
@@ -420,6 +420,13 @@ export class GoogleCalendarService {
         });
         created++;
       } else {
+        // Log duplicate prevention
+        console.log('[Sync] Found existing event, checking for updates:', {
+          id: existingEvent.id,
+          source: existingEvent.source,
+          sourceId: existingEvent.sourceId,
+        });
+
         // Check if update is needed
         const needsUpdate =
           existingEvent.title !== (gEvent.summary || 'Untitled') ||

@@ -8,12 +8,19 @@ import { prisma } from '@/lib/prisma';
 const updateSleepTimeSchema = z.object({
   startTime: z
     .string()
-    .regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Start time must be in HH:MM format (e.g., "22:00")')
-    .describe('Sleep start time in HH:MM format'),
+    .regex(
+      /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/,
+      'Start time must be in HH:MM format (e.g., "22:00")'
+    )
+    .describe("Sleep start time in HH:MM format (UTC)"),
   endTime: z
     .string()
-    .regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'End time must be in HH:MM format (e.g., "08:00")')
-    .describe('Sleep end time in HH:MM format'),
+    .regex(
+      /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/,
+      'End time must be in HH:MM format (e.g., "08:00")'
+    )
+    .describe("Sleep end time in HH:MM format (UTC)"),
+  timezone: z.string().optional().describe("User timezone (for reference)"),
 });
 
 /**

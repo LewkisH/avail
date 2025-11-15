@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TimeInput } from '@/components/ui/time-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
+import { getUserTimezone } from '@/lib/utils/timezone';
 
 // Form validation schemas
 const interestsSchema = z.object({
@@ -101,9 +103,19 @@ export function ProfileForm() {
       }
 
       if (data.sleepTime) {
+        // Convert UTC times to local time for display
+        const convertUtcToLocal = (utcTime: string) => {
+          const [hours, minutes] = utcTime.split(':').map(Number);
+          const date = new Date();
+          date.setUTCHours(hours, minutes, 0, 0);
+          const localHours = date.getHours().toString().padStart(2, '0');
+          const localMinutes = date.getMinutes().toString().padStart(2, '0');
+          return `${localHours}:${localMinutes}`;
+        };
+
         sleepTimeForm.reset({
-          startTime: data.sleepTime.startTime,
-          endTime: data.sleepTime.endTime,
+          startTime: convertUtcToLocal(data.sleepTime.startTime),
+          endTime: convertUtcToLocal(data.sleepTime.endTime),
         });
       }
     } catch (error) {
@@ -179,10 +191,26 @@ export function ProfileForm() {
   const handleSaveSleepTime = async (data: SleepTimeFormData) => {
     setSavingSleepTime(true);
     try {
+      // Convert local time to UTC for storage
+      const convertLocalToUtc = (localTime: string) => {
+        const [hours, minutes] = localTime.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        const utcHours = date.getUTCHours().toString().padStart(2, '0');
+        const utcMinutes = date.getUTCMinutes().toString().padStart(2, '0');
+        return `${utcHours}:${utcMinutes}`;
+      };
+
+      const payload = {
+        startTime: convertLocalToUtc(data.startTime),
+        endTime: convertLocalToUtc(data.endTime),
+        timezone: getUserTimezone(),
+      };
+
       const response = await fetch('/api/user/sleep-time', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -192,6 +220,22 @@ export function ProfileForm() {
 
       const updatedProfile = await response.json();
       setProfile(updatedProfile);
+      
+      // Convert UTC times back to local for the form display
+      if (updatedProfile.sleepTime) {
+        const convertUtcToLocal = (utcTime: string) => {
+          const [hours, minutes] = utcTime.split(':').map(Number);
+          const date = new Date();
+          date.setUTCHours(hours, minutes, 0, 0);
+          const localHours = date.getHours().toString().padStart(2, '0');
+          const localMinutes = date.getMinutes().toString().padStart(2, '0');
+          return `${localHours}:${localMinutes}`;
+        };
+
+        sleepTimeForm.setValue('startTime', convertUtcToLocal(updatedProfile.sleepTime.startTime));
+        sleepTimeForm.setValue('endTime', convertUtcToLocal(updatedProfile.sleepTime.endTime));
+      }
+      
       toast.success('Sleep time updated successfully');
     } catch (error) {
       console.error('Error updating sleep time:', error);
@@ -229,7 +273,7 @@ export function ProfileForm() {
                 value={interestInput}
                 onChange={(e) => setInterestInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddInterest();
                   }
@@ -278,7 +322,7 @@ export function ProfileForm() {
             disabled={savingInterests}
             className="w-full"
           >
-            {savingInterests ? 'Saving...' : 'Save Interests'}
+            {savingInterests ? "Saving..." : "Save Interests"}
           </Button>
         </CardContent>
       </Card>
@@ -292,7 +336,10 @@ export function ProfileForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={budgetForm.handleSubmit(handleSaveBudget)} className="space-y-4">
+          <form
+            onSubmit={budgetForm.handleSubmit(handleSaveBudget)}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="minBudget">Minimum Budget</Label>
               <Input
@@ -300,7 +347,7 @@ export function ProfileForm() {
                 type="number"
                 min="0"
                 step="0.01"
-                {...budgetForm.register('minBudget', { valueAsNumber: true })}
+                {...budgetForm.register("minBudget", { valueAsNumber: true })}
               />
               {budgetForm.formState.errors.minBudget && (
                 <p className="text-sm text-destructive">
@@ -316,7 +363,7 @@ export function ProfileForm() {
                 type="number"
                 min="0"
                 step="0.01"
-                {...budgetForm.register('maxBudget', { valueAsNumber: true })}
+                {...budgetForm.register("maxBudget", { valueAsNumber: true })}
               />
               {budgetForm.formState.errors.maxBudget && (
                 <p className="text-sm text-destructive">
@@ -328,8 +375,10 @@ export function ProfileForm() {
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
               <Select
-                value={budgetForm.watch('currency')}
-                onValueChange={(value) => budgetForm.setValue('currency', value)}
+                value={budgetForm.watch("currency")}
+                onValueChange={(value) =>
+                  budgetForm.setValue("currency", value)
+                }
               >
                 <SelectTrigger id="currency">
                   <SelectValue placeholder="Select currency" />
@@ -343,12 +392,8 @@ export function ProfileForm() {
               </Select>
             </div>
 
-            <Button
-              type="submit"
-              disabled={savingBudget}
-              className="w-full"
-            >
-              {savingBudget ? 'Saving...' : 'Save Budget'}
+            <Button type="submit" disabled={savingBudget} className="w-full">
+              {savingBudget ? "Saving..." : "Save Budget"}
             </Button>
           </form>
         </CardContent>
@@ -363,13 +408,16 @@ export function ProfileForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={sleepTimeForm.handleSubmit(handleSaveSleepTime)} className="space-y-4">
+          <form
+            onSubmit={sleepTimeForm.handleSubmit(handleSaveSleepTime)}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="startTime">Sleep Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                {...sleepTimeForm.register('startTime')}
+              <Controller
+                name="startTime"
+                control={sleepTimeForm.control}
+                render={({ field }) => <TimeInput id="startTime" {...field} />}
               />
               {sleepTimeForm.formState.errors.startTime && (
                 <p className="text-sm text-destructive">
@@ -380,10 +428,10 @@ export function ProfileForm() {
 
             <div className="space-y-2">
               <Label htmlFor="endTime">Wake Up Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                {...sleepTimeForm.register('endTime')}
+              <Controller
+                name="endTime"
+                control={sleepTimeForm.control}
+                render={({ field }) => <TimeInput id="endTime" {...field} />}
               />
               {sleepTimeForm.formState.errors.endTime && (
                 <p className="text-sm text-destructive">
@@ -392,12 +440,8 @@ export function ProfileForm() {
               )}
             </div>
 
-            <Button
-              type="submit"
-              disabled={savingSleepTime}
-              className="w-full"
-            >
-              {savingSleepTime ? 'Saving...' : 'Save Sleep Time'}
+            <Button type="submit" disabled={savingSleepTime} className="w-full">
+              {savingSleepTime ? "Saving..." : "Save Sleep Time"}
             </Button>
           </form>
         </CardContent>

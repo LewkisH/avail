@@ -57,8 +57,8 @@ model UserBudget {
 model UserSleepTime {
   id        String   @id @default(uuid())
   userId    String   @unique
-  startTime String // Format: "HH:MM" (e.g., "22:00")
-  endTime   String // Format: "HH:MM" (e.g., "08:00")
+  startTime String // Format: "HH:MM" in UTC (e.g., "22:00")
+  endTime   String // Format: "HH:MM" in UTC (e.g., "08:00")
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

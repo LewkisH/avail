@@ -108,11 +108,11 @@ export function formatTimeDisplay(
   const date = typeof utcDate === 'string' ? new Date(utcDate) : utcDate;
   const tz = timezone || getUserTimezone();
   
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString("en-US", {
     timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
 }
 
