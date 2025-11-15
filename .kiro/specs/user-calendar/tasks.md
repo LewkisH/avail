@@ -74,7 +74,7 @@
   - Use consistent styling with existing navigation links
   - _Requirements: 1.3_
 
-- [ ] 9. Add timezone handling utilities
+- [x] 9. Add timezone handling utilities
   - Implement timezone detection using browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`
   - Store all times in UTC in database
   - Convert times to user's timezone for display

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Plus, Calendar, ChevronLeft, ChevronRight, Clock, Edit, Trash2 } from "lucide-react";
 import { TimeSlotDialog } from "./time-slot-dialog";
 import { DeleteTimeSlotDialog } from "./delete-time-slot-dialog";
+import { formatTimeDisplay, formatDateDisplay, getUserTimezone } from "@/lib/utils/timezone";
 
 interface TimeSlot {
   id: string;
@@ -100,20 +101,12 @@ export function CalendarView() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return formatDateDisplay(date);
   };
 
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    // Convert UTC time from API to user's local timezone for display
+    return formatTimeDisplay(dateString);
   };
 
   const getWeekRangeDisplay = () => {
@@ -144,13 +137,13 @@ export function CalendarView() {
   };
 
   const getTimeSlotsForDay = (date: Date) => {
+    const timezone = getUserTimezone();
     return timeSlots.filter((slot) => {
+      // Convert UTC time to user's timezone for comparison
       const slotDate = new Date(slot.startTime);
-      return (
-        slotDate.getDate() === date.getDate() &&
-        slotDate.getMonth() === date.getMonth() &&
-        slotDate.getFullYear() === date.getFullYear()
-      );
+      const slotDateStr = slotDate.toLocaleDateString('en-US', { timeZone: timezone });
+      const targetDateStr = date.toLocaleDateString('en-US', { timeZone: timezone });
+      return slotDateStr === targetDateStr;
     });
   };
 

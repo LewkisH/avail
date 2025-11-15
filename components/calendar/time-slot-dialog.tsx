@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { getUserTimezone, formatDateTimeLocal } from '@/lib/utils/timezone';
 
 interface TimeSlot {
   id: string;
@@ -77,17 +78,7 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
   useEffect(() => {
     if (open) {
       if (timeSlot) {
-        // Format dates for datetime-local input
-        const formatDateTimeLocal = (date: Date) => {
-          const d = new Date(date);
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          const hours = String(d.getHours()).padStart(2, '0');
-          const minutes = String(d.getMinutes()).padStart(2, '0');
-          return `${year}-${month}-${day}T${hours}:${minutes}`;
-        };
-
+        // Convert UTC dates to local timezone for display in form
         form.reset({
           title: timeSlot.title,
           startTime: formatDateTimeLocal(timeSlot.startTime),
@@ -107,8 +98,10 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
 
   const onSubmit = async (data: TimeSlotFormData) => {
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Get user's timezone for API
+      const timezone = getUserTimezone();
       
+      // Convert local datetime-local input to UTC for storage
       const payload = {
         title: data.title,
         startTime: new Date(data.startTime).toISOString(),
