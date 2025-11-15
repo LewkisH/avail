@@ -7,6 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { TimeSlotEventsSection } from './time-slot-events-section';
+import { TimeSlotAvailabilitySection } from './time-slot-availability-section';
 
 interface TimeSlot {
   id: string;
@@ -16,13 +19,37 @@ interface TimeSlot {
   description?: string;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  description?: string;
+}
+
+interface UserAvailability {
+  id: string;
+  name: string;
+  email: string;
+  imageUrl?: string;
+  isAvailable: boolean;
+}
+
 interface TimeSlotModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   timeSlot: TimeSlot | null;
+  events?: Event[];
+  availability?: UserAvailability[];
 }
 
-export function TimeSlotModal({ open, onOpenChange, timeSlot }: TimeSlotModalProps) {
+export function TimeSlotModal({
+  open,
+  onOpenChange,
+  timeSlot,
+  events = [],
+  availability = []
+}: TimeSlotModalProps) {
   if (!timeSlot) {
     return null;
   }
@@ -58,10 +85,12 @@ export function TimeSlotModal({ open, onOpenChange, timeSlot }: TimeSlotModalPro
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4">
-          <p className="text-sm text-muted-foreground">
-            Additional actions and functionality will be available here in the future.
-          </p>
+        <div className="space-y-4 py-4">
+          <TimeSlotEventsSection events={events} />
+
+          <Separator />
+
+          <TimeSlotAvailabilitySection availability={availability} />
         </div>
       </DialogContent>
     </Dialog>

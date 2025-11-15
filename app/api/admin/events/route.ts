@@ -10,11 +10,12 @@ const externalEventSchema = z.object({
   timezone: z.string(),
   location: z.string().optional().nullable(),
   cost: z.number().optional().nullable(),
-  currency: z.string().default('EUR'),
+  currency: z.string().default("EUR"),
   category: z.string(),
   sourceApi: z.string(),
   sourceId: z.string(),
   sourceUrl: z.string(),
+  imageUrl: z.string().optional().nullable(),
 });
 
 const requestSchema = z.object({
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
             sourceApi: event.sourceApi,
             sourceId: event.sourceId,
             sourceUrl: event.sourceUrl,
+            imageUrl: event.imageUrl,
           },
           update: {
             title: event.title,
@@ -93,6 +95,7 @@ export async function POST(request: NextRequest) {
             currency: event.currency,
             category: event.category,
             sourceUrl: event.sourceUrl,
+            imageUrl: event.imageUrl,
           },
         })
       )
