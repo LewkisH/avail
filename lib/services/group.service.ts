@@ -53,6 +53,26 @@ export class GroupService {
         email: string,
         invitedBy: string
     ) {
+        // Check if user with this email is already a member
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (existingUser) {
+            const existingMember = await prisma.groupMember.findUnique({
+                where: {
+                    groupId_userId: {
+                        groupId,
+                        userId: existingUser.id,
+                    },
+                },
+            });
+
+            if (existingMember) {
+                throw new Error('User is already a member of this group');
+            }
+        }
+
         // Set expiration to 7 days from now
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
@@ -68,6 +88,52 @@ export class GroupService {
                 group: true,
                 inviter: true,
             },
+        });
+    }
+
+    /**
+     * Decline a group invitation
+     * Updates invitation status to declined
+     * @param token - Invitation token
+     * @param userId - User ID declining the invitation
+     * @returns Updated invitation
+     */
+    static async declineInvitation(token: string, userId: string) {
+        return await prisma.$transaction(async (tx) => {
+            // Find the invitation
+            const invitation = await tx.groupInvitation.findUnique({
+                where: { token },
+            });
+
+            if (!invitation) {
+                throw new Error('Invitation not found');
+            }
+
+            if (invitation.status !== 'pending') {
+                throw new Error('Invitation has already been processed');
+            }
+
+            // Get user to verify email matches
+            const user = await tx.user.findUnique({
+                where: { id: userId },
+            });
+
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            if (user.email !== invitation.invitedEmail) {
+                throw new Error('Email does not match invitation');
+            }
+
+            // Update invitation status to declined
+            return await tx.groupInvitation.update({
+                where: { id: invitation.id },
+                data: { status: 'declined' },
+                include: {
+                    group: true,
+                },
+            });
         });
     }
 

@@ -97,13 +97,21 @@ export function PendingInvitations({ onInvitationAccepted }: PendingInvitationsP
   const handleDecline = async (token: string, invitationId: string) => {
     setProcessingId(invitationId);
     try {
-      // For now, just remove it from the UI
-      // In a full implementation, you'd want an API endpoint to decline invitations
+      const response = await fetch(`/api/invitations/${token}/decline`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to decline invitation');
+      }
+
+      // Remove the invitation from the list
       setInvitations(invitations.filter((inv) => inv.id !== invitationId));
       toast.success('Invitation declined');
     } catch (error) {
       console.error('Error declining invitation:', error);
-      toast.error('Failed to decline invitation');
+      toast.error(error instanceof Error ? error.message : 'Failed to decline invitation');
     } finally {
       setProcessingId(null);
     }
