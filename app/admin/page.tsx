@@ -25,6 +25,7 @@ export default function AdminPage() {
     sourceApi: 'manual',
     sourceId: '',
     sourceUrl: '',
+    imageUrl: '',
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -175,6 +176,7 @@ export default function AdminPage() {
         sourceApi: 'manual',
         sourceId: '',
         sourceUrl: '',
+        imageUrl: '',
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create event');
@@ -249,7 +251,8 @@ export default function AdminPage() {
                         category: "concert",
                         sourceApi: "manual",
                         sourceId: "unique-id",
-                        sourceUrl: "https://example.com"
+                        sourceUrl: "https://example.com",
+                        imageUrl: "https://example.com/image.jpg"
                       };
                       setJsonInput(JSON.stringify(exampleJson, null, 2));
                       toast.success('Example JSON copied to input');
@@ -275,7 +278,8 @@ export default function AdminPage() {
   "category": "concert",
   "sourceApi": "manual",
   "sourceId": "unique-id",
-  "sourceUrl": "https://example.com"
+  "sourceUrl": "https://example.com",
+  "imageUrl": "https://example.com/image.jpg"
 }`}
                 />
               </div>
@@ -401,6 +405,17 @@ export default function AdminPage() {
                     value={formData.sourceUrl}
                     onChange={(e) => setFormData({ ...formData, sourceUrl: e.target.value })}
                     placeholder="https://example.com/event"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
                   />
                 </div>
 

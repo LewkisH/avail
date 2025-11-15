@@ -5,8 +5,8 @@ import { z } from 'zod';
 const externalEventSchema = z.object({
   title: z.string().min(1),
   description: z.string(),
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
+  startTime: z.string().datetime({ offset: true }),
+  endTime: z.string().datetime({ offset: true }),
   timezone: z.string(),
   location: z.string().optional().nullable(),
   cost: z.number().optional().nullable(),
@@ -38,11 +38,23 @@ export async function POST(request: NextRequest) {
     const validation = requestSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error("Event validation failed:", {
+        errors: validation.error.issues,
+        receivedData: body,
+      });
+
+      const errorMessages = validation.error.issues
+        .map((issue) => {
+          const path = issue.path.join(".");
+          return `${path}: ${issue.message}`;
+        })
+        .join("; ");
+
       return NextResponse.json(
         {
           error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid input',
+            code: "VALIDATION_ERROR",
+            message: `Validation failed: ${errorMessages}`,
             details: validation.error.issues,
           },
         },
@@ -52,12 +64,20 @@ export async function POST(request: NextRequest) {
 
     const { password, events } = validation.data;
 
+    console.log(
+      `Admin authentication attempt, processing ${events.length} event(s)`
+    );
+
     if (password !== adminPassword) {
       return NextResponse.json(
         { error: { code: 'INVALID_PASSWORD', message: 'Invalid password' } },
         { status: 401 }
       );
     }
+
+    console.log(
+      "Admin authenticated successfully, creating/updating events..."
+    );
 
     // Create events
     const createdEvents = await Promise.all(
@@ -99,6 +119,13 @@ export async function POST(request: NextRequest) {
           },
         })
       )
+    );
+
+    console.log(
+      `Successfully created/updated ${createdEvents.length} event(s)`,
+      {
+        eventIds: createdEvents.map((e) => e.id),
+      }
     );
 
     return NextResponse.json({
