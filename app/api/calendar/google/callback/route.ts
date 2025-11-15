@@ -10,10 +10,29 @@ import { GoogleCalendarService } from '@/lib/services/google-calendar.service';
  * - error: Error code if user denied access
  */
 export async function GET(request: NextRequest) {
+  // Enhanced logging for debugging
+  console.log('=== GOOGLE OAUTH CALLBACK HIT ===');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Full URL:', request.url);
+  console.log('Method:', request.method);
+  console.log('Headers:', {
+    host: request.headers.get('host'),
+    referer: request.headers.get('referer'),
+    userAgent: request.headers.get('user-agent'),
+  });
+
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state'); // userId
   const error = searchParams.get('error');
+
+  console.log('Query Parameters:', {
+    hasCode: !!code,
+    codeLength: code?.length,
+    state,
+    error,
+    allParams: Object.fromEntries(searchParams.entries()),
+  });
 
   // Handle user denial
   if (error === 'access_denied') {
