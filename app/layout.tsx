@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Group Activity Planner",
+  title: "Avail",
   description: "Plan activities with friends based on shared interests and availability",
 };
 

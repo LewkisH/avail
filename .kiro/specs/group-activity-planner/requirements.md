@@ -2,11 +2,11 @@
 
 ## Introduction
 
-The Group Activity Planner is a Next.js web application that enables users to form groups with friends, share their interests and budgets, sync their calendars, and receive AI-powered suggestions for activities and events that fit the group's collective preferences and availability. The system integrates with Clerk for authentication, uses PostgreSQL for data persistence, imports calendar data via ICS format, aggregates events from multiple external APIs, and leverages an LLM to provide intelligent activity recommendations.
+The Avail is a Next.js web application that enables users to form groups with friends, share their interests and budgets, sync their calendars, and receive AI-powered suggestions for activities and events that fit the group's collective preferences and availability. The system integrates with Clerk for authentication, uses PostgreSQL for data persistence, imports calendar data via ICS format, aggregates events from multiple external APIs, and leverages an LLM to provide intelligent activity recommendations.
 
 ## Glossary
 
-- **System**: The Group Activity Planner web application
+- **System**: The Avail Group Activity Planner web application
 - **User**: An authenticated individual who can create or join groups
 - **Group**: A collection of users who share interests, budgets, and calendar availability
 - **Calendar**: A user's schedule imported from Google Calendar or via ICS format

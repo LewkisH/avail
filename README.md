@@ -1,4 +1,4 @@
-# Group Activity Planner
+# Avail
 
 A Next.js web application that enables users to form groups with friends, share their interests and budgets, sync their calendars, and receive AI-powered suggestions for activities and events that fit the group's collective preferences and availability.
 

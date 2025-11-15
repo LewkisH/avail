@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Group Activity Planner is a full-stack Next.js application that combines authentication (Clerk), database persistence (PostgreSQL), calendar integration (Google Calendar API + ICS), event aggregation from external APIs, and AI-powered recommendations (LLM). The architecture follows a modular approach with clear separation between data access, business logic, and presentation layers.
+The Avail Group Activity Planner is a full-stack Next.js application that combines authentication (Clerk), database persistence (PostgreSQL), calendar integration (Google Calendar API + ICS), event aggregation from external APIs, and AI-powered recommendations (LLM). The architecture follows a modular approach with clear separation between data access, business logic, and presentation layers.
 
 ## Architecture
 

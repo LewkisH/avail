@@ -15,7 +15,7 @@ export default async function Home() {
       <main className="flex max-w-3xl flex-col items-center gap-8 px-8 py-16 text-center">
         <div className="space-y-4">
           <h1 className="text-5xl font-bold tracking-tight">
-            Group Activity Planner
+            Avail
           </h1>
           <p className="text-xl text-muted-foreground">
             Plan activities with friends based on shared interests and
