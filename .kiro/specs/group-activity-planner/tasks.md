@@ -128,7 +128,7 @@
     - Display invitation acceptance flow
     - _Requirements: 2_
 
-- [ ] 7. Set up project documentation
+- [x] 7. Set up project documentation
   - Create README.md with project overview and setup instructions
   - Document environment variables needed for dev and prod
   - Add local development setup guide (database, Clerk dev keys)
