@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InteractiveTimeSlotRow } from '@/components/groups/interactive-time-slot-row';
+import { ConfirmationControls } from '@/components/calendar/confirmation-controls';
+import { TimeSlotModal } from '@/components/calendar/time-slot-modal';
+import type { UnavailabilityRange, TimeSlot } from '@/lib/utils/unavailability-grid';
 
 interface GroupAvailabilityViewProps {
   groupIds: string[];
@@ -21,6 +25,10 @@ interface AvailabilityWindow {
     name: string;
     email: string;
   }>;
+}
+
+interface DraftUnavailabilityRange extends UnavailabilityRange {
+  // Draft ranges are client-side only until confirmed
 }
 
 // Custom hook for fetching and aggregating availability data from multiple groups
@@ -378,9 +386,27 @@ interface TimeSlotsListProps {
   windows: AvailabilityWindow[];
   loading: boolean;
   error: string | null;
+  draftRanges: Map<string, DraftUnavailabilityRange[]>;
+  onRangeCreate: (timeSlotId: string, range: UnavailabilityRange) => void;
+  onRangeUpdate: (
+    timeSlotId: string,
+    rangeId: string,
+    updates: Partial<UnavailabilityRange>
+  ) => void;
+  onRangeDelete: (timeSlotId: string, rangeId: string) => void;
+  onTimeSlotClick: (window: AvailabilityWindow) => void;
 }
 
-function TimeSlotsList({ windows, loading, error }: TimeSlotsListProps) {
+function TimeSlotsList({
+  windows,
+  loading,
+  error,
+  draftRanges,
+  onRangeCreate,
+  onRangeUpdate,
+  onRangeDelete,
+  onTimeSlotClick,
+}: TimeSlotsListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -429,15 +455,35 @@ function TimeSlotsList({ windows, loading, error }: TimeSlotsListProps) {
 
   return (
     <div className="space-y-3">
-      {windows.map((window) => (
-        <TimeSlotRow
-          key={window.id}
-          groupName={window.groupName}
-          startTime={new Date(window.startTime)}
-          endTime={new Date(window.endTime)}
-          participants={window.participants}
-        />
-      ))}
+      {windows.map((window) => {
+        const timeSlot: TimeSlot = {
+          startTime: new Date(window.startTime),
+          endTime: new Date(window.endTime),
+        };
+
+        const ranges = draftRanges.get(window.id) || [];
+
+        return (
+          <InteractiveTimeSlotRow
+            key={window.id}
+            timeSlot={timeSlot}
+            unavailabilityRanges={ranges}
+            onRangeCreate={(range) => onRangeCreate(window.id, range)}
+            onRangeUpdate={(rangeId, updates) =>
+              onRangeUpdate(window.id, rangeId, updates)
+            }
+            onRangeDelete={(rangeId) => onRangeDelete(window.id, rangeId)}
+            onClick={() => onTimeSlotClick(window)}
+          >
+            <TimeSlotRow
+              groupName={window.groupName}
+              startTime={new Date(window.startTime)}
+              endTime={new Date(window.endTime)}
+              participants={window.participants}
+            />
+          </InteractiveTimeSlotRow>
+        );
+      })}
     </div>
   );
 }
@@ -452,6 +498,18 @@ export function GroupAvailabilityView({
     return date;
   });
   
+  // State for draft unavailability ranges
+  const [draftRanges, setDraftRanges] = useState<Map<string, DraftUnavailabilityRange[]>>(
+    new Map()
+  );
+
+  // State for modal
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<AvailabilityWindow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // State for saving
+  const [isSaving, setIsSaving] = useState(false);
+
   const { availabilityWindows, loading, error } = useGroupsAvailability(
     groupIds,
     selectedDate
@@ -461,7 +519,133 @@ export function GroupAvailabilityView({
     const normalizedDate = new Date(date);
     normalizedDate.setHours(0, 0, 0, 0);
     setSelectedDate(normalizedDate);
+    // Clear draft ranges when date changes
+    setDraftRanges(new Map());
   };
+
+  // Handler for creating a new range
+  const handleRangeCreate = (timeSlotId: string, range: UnavailabilityRange) => {
+    setDraftRanges((prev) => {
+      const newMap = new Map(prev);
+      const existingRanges = newMap.get(timeSlotId) || [];
+      newMap.set(timeSlotId, [...existingRanges, range]);
+      return newMap;
+    });
+  };
+
+  // Handler for updating a range
+  const handleRangeUpdate = (
+    timeSlotId: string,
+    rangeId: string,
+    updates: Partial<UnavailabilityRange>
+  ) => {
+    setDraftRanges((prev) => {
+      const newMap = new Map(prev);
+      const existingRanges = newMap.get(timeSlotId) || [];
+      const updatedRanges = existingRanges.map((range) =>
+        range.id === rangeId ? { ...range, ...updates } : range
+      );
+      newMap.set(timeSlotId, updatedRanges);
+      return newMap;
+    });
+  };
+
+  // Handler for deleting a range
+  const handleRangeDelete = (timeSlotId: string, rangeId: string) => {
+    setDraftRanges((prev) => {
+      const newMap = new Map(prev);
+      const existingRanges = newMap.get(timeSlotId) || [];
+      const filteredRanges = existingRanges.filter((range) => range.id !== rangeId);
+
+      if (filteredRanges.length === 0) {
+        newMap.delete(timeSlotId);
+      } else {
+        newMap.set(timeSlotId, filteredRanges);
+      }
+
+      return newMap;
+    });
+  };
+
+  // Handler for confirming unavailability ranges
+  const handleConfirm = async () => {
+    // Get user timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Collect all draft ranges
+    const allRanges: Array<{ timeSlotId: string; range: DraftUnavailabilityRange }> = [];
+    draftRanges.forEach((ranges, timeSlotId) => {
+      ranges.forEach((range) => {
+        allRanges.push({ timeSlotId, range });
+      });
+    });
+
+    if (allRanges.length === 0) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Create CalendarEvent records for each range
+      const createPromises = allRanges.map(async ({ range }) => {
+        const response = await fetch('/api/calendar/timeslots', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: 'Busy',
+            startTime: range.startTime.toISOString(),
+            endTime: range.endTime.toISOString(),
+            timezone,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Failed to save unavailability');
+        }
+
+        return response.json();
+      });
+
+      await Promise.all(createPromises);
+
+      // Clear draft ranges on success
+      setDraftRanges(new Map());
+
+      toast.success(
+        `Successfully saved ${allRanges.length} unavailable ${allRanges.length === 1 ? 'period' : 'periods'
+        }`
+      );
+    } catch (err) {
+      console.error('Error saving unavailability ranges:', err);
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save unavailability ranges'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handler for cancelling draft ranges
+  const handleCancel = () => {
+    setDraftRanges(new Map());
+    toast.info('Cancelled unavailability selection');
+  };
+
+  // Handler for opening modal
+  const handleTimeSlotClick = (window: AvailabilityWindow) => {
+    setSelectedTimeSlot(window);
+    setIsModalOpen(true);
+  };
+
+  // Calculate total range count
+  const totalRangeCount = Array.from(draftRanges.values()).reduce(
+    (sum, ranges) => sum + ranges.length,
+    0
+  );
 
   // Handle case where user is not in any groups
   if (groupIds.length === 0) {
@@ -486,11 +670,18 @@ export function GroupAvailabilityView({
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
-      <div>
+      {/* Header Section with Confirmation Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <h2 className="text-2xl font-semibold text-foreground">
           Select the date you are available
         </h2>
+
+        <ConfirmationControls
+          visible={totalRangeCount > 0 && !isSaving}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          rangeCount={totalRangeCount}
+        />
       </div>
 
       {/* Day Picker */}
@@ -501,6 +692,29 @@ export function GroupAvailabilityView({
         windows={availabilityWindows}
         loading={loading}
         error={error}
+        draftRanges={draftRanges}
+        onRangeCreate={handleRangeCreate}
+        onRangeUpdate={handleRangeUpdate}
+        onRangeDelete={handleRangeDelete}
+        onTimeSlotClick={handleTimeSlotClick}
+      />
+
+      {/* Time Slot Modal */}
+      <TimeSlotModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        timeSlot={
+          selectedTimeSlot
+            ? {
+              id: selectedTimeSlot.id,
+              title: `${selectedTimeSlot.groupName} - Available Time`,
+              startTime: new Date(selectedTimeSlot.startTime),
+              endTime: new Date(selectedTimeSlot.endTime),
+              description: `${selectedTimeSlot.participants.length} ${selectedTimeSlot.participants.length === 1 ? 'member' : 'members'
+                } available`,
+            }
+            : null
+        }
       />
     </div>
   );

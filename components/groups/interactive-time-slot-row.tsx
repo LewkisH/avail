@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { UnavailabilityOverlay } from '@/components/calendar/unavailability-overlay';
 import {
   positionToTime,
@@ -46,6 +46,12 @@ export function InteractiveTimeSlotRow({
     hasMoved: false,
   });
   const [draftRange, setDraftRange] = useState<UnavailabilityRange | null>(null);
+  const dragStateRef = useRef(dragState);
+
+  // Keep dragStateRef in sync
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
 
   // Calculate time from cursor/touch position
   const calculateTimeFromPosition = useCallback(
@@ -56,12 +62,10 @@ export function InteractiveTimeSlotRow({
       const pixelPosition = clientX - rect.left;
       const containerWidth = rect.width;
 
-      // Ensure position is within bounds
-      if (pixelPosition < 0 || pixelPosition > containerWidth) {
-        return null;
-      }
+      // Clamp position to container bounds
+      const clampedPosition = Math.max(0, Math.min(pixelPosition, containerWidth));
 
-      return positionToTime(pixelPosition, containerWidth, timeSlot);
+      return positionToTime(clampedPosition, containerWidth, timeSlot);
     },
     [timeSlot]
   );
@@ -130,10 +134,11 @@ export function InteractiveTimeSlotRow({
 
   // Handle pointer up (mouse or touch)
   const handlePointerUp = useCallback(() => {
-    if (!dragState.isDragging) return;
+    const currentDragState = dragStateRef.current;
+    if (!currentDragState.isDragging) return;
 
     // Check if this was a click (no significant movement)
-    if (!dragState.hasMoved) {
+    if (!currentDragState.hasMoved) {
       // Simple click - forward to modal handler
       onClick();
     } else if (draftRange) {
@@ -153,7 +158,45 @@ export function InteractiveTimeSlotRow({
       hasMoved: false,
     });
     setDraftRange(null);
-  }, [dragState, draftRange, onClick, onRangeCreate]);
+  }, [onClick, onRangeCreate, draftRange]);
+
+  // Set up document-level event listeners for drag continuation
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+
+    const handleDocumentMouseMove = (e: MouseEvent) => {
+      handlePointerMove(e.clientX);
+    };
+
+    const handleDocumentTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        if (dragStateRef.current.hasMoved) {
+          e.preventDefault();
+        }
+        handlePointerMove(e.touches[0].clientX);
+      }
+    };
+
+    const handleDocumentMouseUp = () => {
+      handlePointerUp();
+    };
+
+    const handleDocumentTouchEnd = () => {
+      handlePointerUp();
+    };
+
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false });
+    document.addEventListener('mouseup', handleDocumentMouseUp);
+    document.addEventListener('touchend', handleDocumentTouchEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleDocumentMouseMove);
+      document.removeEventListener('touchmove', handleDocumentTouchMove);
+      document.removeEventListener('mouseup', handleDocumentMouseUp);
+      document.removeEventListener('touchend', handleDocumentTouchEnd);
+    };
+  }, [dragState.isDragging, handlePointerMove, handlePointerUp]);
 
   // Mouse event handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -168,14 +211,6 @@ export function InteractiveTimeSlotRow({
 
     e.preventDefault();
     handlePointerDown(e.clientX);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    handlePointerMove(e.clientX);
-  };
-
-  const handleMouseUp = () => {
-    handlePointerUp();
   };
 
   // Touch event handlers
@@ -194,21 +229,6 @@ export function InteractiveTimeSlotRow({
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (dragState.isDragging && dragState.hasMoved) {
-      // Prevent scrolling during drag
-      e.preventDefault();
-    }
-
-    if (e.touches.length > 0) {
-      handlePointerMove(e.touches[0].clientX);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    handlePointerUp();
-  };
-
   // Combine actual ranges with draft range for display
   const allRanges = draftRange
     ? [...unavailabilityRanges, draftRange]
@@ -219,13 +239,7 @@ export function InteractiveTimeSlotRow({
       ref={containerRef}
       className="relative"
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp} // Cancel drag if mouse leaves
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd} // Cancel drag if touch is cancelled
       style={{
         cursor: dragState.isDragging
           ? 'col-resize'

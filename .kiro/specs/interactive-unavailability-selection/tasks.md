@@ -51,7 +51,7 @@
   - Style modal appropriately for mobile and desktop
   - _Requirements: 5.4, 5.5_
 
-- [ ] 6. Create ConfirmationControls component
+- [x] 6. Create ConfirmationControls component
   - Create components/calendar/confirmation-controls.tsx component
   - Implement "Confirm Unavailables" and "Cancel" buttons with appropriate styling
   - Add range count display showing number of unavailable periods
@@ -59,7 +59,7 @@
   - Style buttons with appropriate variants and minimum 44px height for mobile
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 7. Integrate unavailability selection into GroupAvailabilityView
+- [x] 7. Integrate unavailability selection into GroupAvailabilityView
   - Add state management for draft unavailability ranges (DraftUnavailabilityRange[]) in GroupAvailabilityView component
   - Add DragState interface and state for tracking current drag operations
   - Implement onRangeCreate, onRangeUpdate, onRangeDelete handlers

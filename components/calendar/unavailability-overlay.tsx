@@ -148,6 +148,8 @@ export function UnavailabilityOverlay({
             key={range.id}
             range={range}
             position={position}
+            timeSlot={timeSlot}
+            containerWidth={containerWidth}
             onHandleDragStart={handleHandleDragStart}
             onHandleDrag={handleHandleDrag}
             onHandleDragEnd={handleHandleDragEnd}

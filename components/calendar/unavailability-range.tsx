@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { positionToTime, type TimeSlot } from '@/lib/utils/unavailability-grid';
 
 interface UnavailabilityRangeProps {
   range: {
@@ -12,6 +13,8 @@ interface UnavailabilityRangeProps {
     left: number;
     width: number;
   };
+  timeSlot: TimeSlot;
+  containerWidth: number;
   onHandleDragStart: (rangeId: string, handle: 'start' | 'end') => void;
   onHandleDrag: (rangeId: string, newTime: Date, handle: 'start' | 'end') => void;
   onHandleDragEnd: () => void;
@@ -103,12 +106,15 @@ function RangeHandle({ position, onDragStart, onDrag, onDragEnd, isDragging }: R
 export function UnavailabilityRange({
   range,
   position,
+  timeSlot,
+  containerWidth,
   onHandleDragStart,
   onHandleDrag,
   onHandleDragEnd,
 }: UnavailabilityRangeProps) {
   const [draggingHandle, setDraggingHandle] = useState<'start' | 'end' | null>(null);
   const rangeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
@@ -126,10 +132,20 @@ export function UnavailabilityRange({
   const handleDrag = (clientX: number, handle: 'start' | 'end') => {
     if (!rangeRef.current) return;
 
-    // Calculate the new time based on the cursor position
-    // This is a placeholder - the actual calculation will be done by the parent component
-    // For now, we just pass the clientX to the parent
-    const newTime = handle === 'start' ? range.startTime : range.endTime;
+    // Find the parent container (the overlay container)
+    const overlayContainer = rangeRef.current.parentElement;
+    if (!overlayContainer) return;
+
+    // Calculate pixel position relative to the overlay container
+    const rect = overlayContainer.getBoundingClientRect();
+    const pixelPosition = clientX - rect.left;
+
+    // Clamp to container bounds
+    const clampedPosition = Math.max(0, Math.min(pixelPosition, containerWidth));
+
+    // Convert pixel position to time
+    const newTime = positionToTime(clampedPosition, containerWidth, timeSlot);
+
     onHandleDrag(range.id, newTime, handle);
   };
 
