@@ -30,26 +30,54 @@ interface RangeHandleProps {
 
 function RangeHandle({ position, onDragStart, onDrag, onDragEnd, isDragging }: RangeHandleProps) {
   const handleRef = useRef<HTMLDivElement>(null);
+  const lastCallTimeRef = useRef<number>(0);
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isDragging) return;
 
+    // Debounced handler for 60fps (16ms)
+    const debouncedOnDrag = (clientX: number) => {
+      const now = Date.now();
+      if (now - lastCallTimeRef.current < 16) {
+        // Schedule for next frame
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+        rafIdRef.current = requestAnimationFrame(() => {
+          onDrag(clientX);
+          lastCallTimeRef.current = Date.now();
+        });
+      } else {
+        onDrag(clientX);
+        lastCallTimeRef.current = now;
+      }
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
-      onDrag(e.clientX);
+      debouncedOnDrag(e.clientX);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length > 0) {
         e.preventDefault();
-        onDrag(e.touches[0].clientX);
+        debouncedOnDrag(e.touches[0].clientX);
       }
     };
 
     const handleMouseUp = () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       onDragEnd();
     };
 
     const handleTouchEnd = () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       onDragEnd();
     };
 
@@ -59,6 +87,9 @@ function RangeHandle({ position, onDragStart, onDrag, onDragEnd, isDragging }: R
     document.addEventListener('touchend', handleTouchEnd);
 
     return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -80,11 +111,12 @@ function RangeHandle({ position, onDragStart, onDrag, onDragEnd, isDragging }: R
     <div
       ref={handleRef}
       className={`
-        absolute top-0 h-full w-3 cursor-ew-resize touch-none
-        ${position === 'start' ? 'left-0 -ml-1.5' : 'right-0 -mr-1.5'}
+        absolute top-0 h-full cursor-ew-resize touch-none
+        ${position === 'start' ? 'left-0' : 'right-0'}
         ${isDragging ? 'bg-orange-600' : 'bg-orange-500'}
         ${position === 'start' ? 'rounded-l' : 'rounded-r'}
         hover:bg-orange-600 transition-colors
+        w-4 ${position === 'start' ? '-ml-2' : '-mr-2'}
         sm:w-4 sm:${position === 'start' ? '-ml-2' : '-mr-2'}
       `}
       style={{
@@ -114,7 +146,6 @@ export function UnavailabilityRange({
 }: UnavailabilityRangeProps) {
   const [draggingHandle, setDraggingHandle] = useState<'start' | 'end' | null>(null);
   const rangeRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
@@ -154,6 +185,9 @@ export function UnavailabilityRange({
     onHandleDragEnd();
   };
 
+  // Check if labels would overlap (if range is too narrow)
+  const labelsWouldOverlap = position.width < 120; // Approximate threshold for label overlap
+
   return (
     <div
       ref={rangeRef}
@@ -165,13 +199,28 @@ export function UnavailabilityRange({
       role="region"
       aria-label={`Unavailability range from ${formatTime(range.startTime)} to ${formatTime(range.endTime)}`}
     >
-      {/* Time labels */}
-      <div className="absolute -top-7 left-0 text-xs font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm">
-        {formatTime(range.startTime)}
-      </div>
-      <div className="absolute -top-7 right-0 text-xs font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm">
-        {formatTime(range.endTime)}
-      </div>
+      {/* Time labels - responsive positioning to prevent overlap */}
+      {labelsWouldOverlap ? (
+        // Stack labels vertically on narrow ranges
+        <>
+          <div className="absolute -top-14 left-0 text-xs sm:text-sm font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm select-none">
+            {formatTime(range.startTime)}
+          </div>
+          <div className="absolute -top-7 left-0 text-xs sm:text-sm font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm select-none">
+            {formatTime(range.endTime)}
+          </div>
+        </>
+      ) : (
+        // Place labels at start and end for wider ranges
+        <>
+          <div className="absolute -top-7 left-0 text-xs sm:text-sm font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm select-none">
+            {formatTime(range.startTime)}
+          </div>
+          <div className="absolute -top-7 right-0 text-xs sm:text-sm font-semibold text-orange-500 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm select-none">
+            {formatTime(range.endTime)}
+          </div>
+        </>
+      )}
 
       {/* Range background */}
       <div

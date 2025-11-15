@@ -87,7 +87,11 @@ export function InteractiveTimeSlotRow({
     [calculateTimeFromPosition]
   );
 
-  // Handle pointer move (mouse or touch)
+  // Debouncing refs for 60fps performance
+  const lastMoveTimeRef = useRef<number>(0);
+  const rafIdRef = useRef<number | null>(null);
+
+  // Handle pointer move (mouse or touch) with debouncing
   const handlePointerMove = useCallback(
     (clientX: number) => {
       if (!dragState.isDragging || !dragState.startTime) return;
@@ -100,6 +104,30 @@ export function InteractiveTimeSlotRow({
         // Not enough movement yet
         return;
       }
+
+      // Debounce for 60fps (16ms)
+      const now = Date.now();
+      if (now - lastMoveTimeRef.current < 16) {
+        // Schedule for next frame
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+        rafIdRef.current = requestAnimationFrame(() => {
+          processPointerMove(clientX);
+          lastMoveTimeRef.current = Date.now();
+        });
+      } else {
+        processPointerMove(clientX);
+        lastMoveTimeRef.current = now;
+      }
+    },
+    [dragState, calculateTimeFromPosition]
+  );
+
+  // Process pointer move (extracted for debouncing)
+  const processPointerMove = useCallback(
+    (clientX: number) => {
+      if (!dragState.startTime) return;
 
       const currentTime = calculateTimeFromPosition(clientX);
       if (!currentTime) return;
@@ -129,11 +157,17 @@ export function InteractiveTimeSlotRow({
         endTime,
       });
     },
-    [dragState, calculateTimeFromPosition]
+    [dragState.startTime, calculateTimeFromPosition]
   );
 
   // Handle pointer up (mouse or touch)
   const handlePointerUp = useCallback(() => {
+    // Cancel any pending animation frames
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+
     const currentDragState = dragStateRef.current;
     if (!currentDragState.isDragging) return;
 

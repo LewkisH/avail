@@ -33,9 +33,12 @@ interface DraftUnavailabilityRange extends UnavailabilityRange {
 
 // Custom hook for fetching and aggregating availability data from multiple groups
 function useGroupsAvailability(groupIds: string[], date: Date) {
-  const [availabilityWindows, setAvailabilityWindows] = useState<AvailabilityWindow[]>([]);
+  const [availabilityWindows, setAvailabilityWindows] = useState<
+    AvailabilityWindow[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const calculatedDatesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -55,8 +58,8 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
 
         // Format date as YYYY-MM-DD in local timezone (not UTC)
         const year = normalizedDate.getFullYear();
-        const month = String(normalizedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(normalizedDate.getDate()).padStart(2, '0');
+        const month = String(normalizedDate.getMonth() + 1).padStart(2, "0");
+        const day = String(normalizedDate.getDate()).padStart(2, "0");
         const dateStr = `${year}-${month}-${day}`;
 
         // Get timezone offset in minutes (e.g., -120 for UTC+2)
@@ -64,30 +67,39 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
 
         // Check if we need to trigger calculation for this date
         const needsCalculation = !calculatedDatesRef.current.has(dateStr);
-        
+
         if (needsCalculation) {
           // Mark this date as calculated immediately to prevent duplicate calls
           calculatedDatesRef.current.add(dateStr);
-          
+
           // Trigger calculation for all groups in parallel
           await Promise.all(
             groupIds.map(async (groupId) => {
               try {
-                const calcResponse = await fetch(`/api/groups/${groupId}/availability`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    date: dateStr,
-                    timezoneOffset
-                  }),
-                });
+                const calcResponse = await fetch(
+                  `/api/groups/${groupId}/availability`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      date: dateStr,
+                      timezoneOffset,
+                    }),
+                  }
+                );
 
                 if (!calcResponse.ok) {
                   const errorData = await calcResponse.json();
-                  console.error(`Failed to calculate availability for group ${groupId}:`, errorData);
+                  console.error(
+                    `Failed to calculate availability for group ${groupId}:`,
+                    errorData
+                  );
                 }
               } catch (err) {
-                console.error(`Failed to calculate availability for group ${groupId}:`, err);
+                console.error(
+                  `Failed to calculate availability for group ${groupId}:`,
+                  err
+                );
               }
             })
           );
@@ -115,27 +127,35 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
                   return null;
                 }
 
-                throw new Error(errorData.error?.message || `Failed to fetch availability for group ${groupId}`);
+                throw new Error(
+                  errorData.error?.message ||
+                    `Failed to fetch availability for group ${groupId}`
+                );
               }
 
               const data = await response.json();
               return {
                 groupId,
-                groupName: data.groupName || 'Unknown Group',
+                groupName: data.groupName || "Unknown Group",
                 windows: data.windows || [],
               };
             } catch (err) {
-              console.error(`Error fetching availability for group ${groupId}:`, err);
+              console.error(
+                `Error fetching availability for group ${groupId}:`,
+                err
+              );
               return null;
             }
           })
         );
 
         // Filter out null responses (failed requests)
-        const validResponses = responses.filter((r): r is NonNullable<typeof r> => r !== null);
+        const validResponses = responses.filter(
+          (r): r is NonNullable<typeof r> => r !== null
+        );
 
         if (validResponses.length === 0 && groupIds.length > 0) {
-          throw new Error('Unable to load availability from any groups');
+          throw new Error("Unable to load availability from any groups");
         }
 
         // Aggregate all windows from all groups and deduplicate by ID
@@ -155,13 +175,15 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
 
         // Convert map to array and sort by start time
         const allWindows = Array.from(windowsMap.values());
-        allWindows.sort((a, b) => 
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        allWindows.sort(
+          (a, b) =>
+            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         );
 
         setAvailabilityWindows(allWindows);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load availability';
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load availability";
         setError(errorMessage);
         toast.error(errorMessage);
         setAvailabilityWindows([]);
@@ -171,9 +193,22 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
     };
 
     fetchAvailability();
-  }, [groupIds, date.getFullYear(), date.getMonth(), date.getDate()]); // Use date components to avoid timezone issues
+  }, [
+    groupIds,
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    refreshTrigger,
+  ]); // Use date components to avoid timezone issues
 
-  return { availabilityWindows, loading, error };
+  const refresh = () => {
+    // Clear the calculated dates cache to force recalculation
+    calculatedDatesRef.current.clear();
+    // Trigger a re-fetch
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  return { availabilityWindows, loading, error, refresh };
 }
 
 // DayPicker component for date selection
@@ -202,17 +237,19 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
       if (containerRef.current) {
         const containerWidth = containerRef.current.offsetWidth;
         // Account for: button width (40px) * 2 + gaps (12px * 2) + day button (70px) + gaps between days (12px)
-        const availableWidth = containerWidth - (40 * 2) - (12 * 2);
+        const availableWidth = containerWidth - 40 * 2 - 12 * 2;
         const dayButtonWidth = 70;
         const gapWidth = 12;
-        const daysCount = Math.floor((availableWidth + gapWidth) / (dayButtonWidth + gapWidth));
+        const daysCount = Math.floor(
+          (availableWidth + gapWidth) / (dayButtonWidth + gapWidth)
+        );
         setVisibleDays(Math.max(3, Math.min(daysCount, 14))); // Min 3, max 14 days
       }
     };
 
     calculateVisibleDays();
-    window.addEventListener('resize', calculateVisibleDays);
-    return () => window.removeEventListener('resize', calculateVisibleDays);
+    window.addEventListener("resize", calculateVisibleDays);
+    return () => window.removeEventListener("resize", calculateVisibleDays);
   }, []);
 
   useEffect(() => {
@@ -226,16 +263,19 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
     setDates(generatedDates);
   }, [currentStartDate, visibleDays]);
 
-  const handleNavigate = (direction: 'prev' | 'next') => {
+  const handleNavigate = (direction: "prev" | "next") => {
     setCurrentStartDate((prevStart) => {
       const newStart = new Date(prevStart);
-      newStart.setDate(prevStart.getDate() + (direction === 'next' ? visibleDays : -visibleDays));
+      newStart.setDate(
+        prevStart.getDate() +
+          (direction === "next" ? visibleDays : -visibleDays)
+      );
       return newStart;
     });
   };
 
   const formatDayName = (date: Date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
+    return date.toLocaleDateString("en-US", { weekday: "short" });
   };
 
   const formatDayNumber = (date: Date) => {
@@ -251,7 +291,7 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
       <Button
         variant="outline"
         size="icon"
-        onClick={() => handleNavigate('prev')}
+        onClick={() => handleNavigate("prev")}
         className="shrink-0 rounded-full"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -271,8 +311,8 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
               transition-all shrink-0
               ${
                 isSelected(date)
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'bg-white border border-gray-200 hover:bg-gray-50 hover:shadow-sm'
+                  ? "bg-orange-500 text-white shadow-md"
+                  : "bg-white border border-gray-200 hover:bg-gray-50 hover:shadow-sm"
               }
             `}
           >
@@ -285,7 +325,7 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
       <Button
         variant="outline"
         size="icon"
-        onClick={() => handleNavigate('next')}
+        onClick={() => handleNavigate("next")}
         className="shrink-0 rounded-full"
       >
         <ChevronRight className="h-4 w-4" />
@@ -307,20 +347,26 @@ interface TimeSlotRowProps {
   onClick?: () => void;
 }
 
-function TimeSlotRow({ groupName, startTime, endTime, participants, onClick }: TimeSlotRowProps) {
+function TimeSlotRow({
+  groupName,
+  startTime,
+  endTime,
+  participants,
+  onClick,
+}: TimeSlotRowProps) {
   const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
+    return new Date(date).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
       hour12: false,
     });
   };
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
+      .split(" ")
       .map((part) => part[0])
-      .join('')
+      .join("")
       .toUpperCase()
       .slice(0, 2);
   };
@@ -328,16 +374,18 @@ function TimeSlotRow({ groupName, startTime, endTime, participants, onClick }: T
   const getAvatarColor = (id: string) => {
     // Generate consistent color based on user ID
     const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-yellow-500',
-      'bg-indigo-500',
-      'bg-red-500',
-      'bg-teal-500',
+      "bg-blue-500",
+      "bg-green-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-yellow-500",
+      "bg-indigo-500",
+      "bg-red-500",
+      "bg-teal-500",
     ];
-    const index = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const index = id
+      .split("")
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[index % colors.length];
   };
 
@@ -347,17 +395,15 @@ function TimeSlotRow({ groupName, startTime, endTime, participants, onClick }: T
       className={`
         flex items-center justify-between
         bg-white rounded-lg border border-gray-200
-        p-4 transition-shadow
-        ${onClick ? 'cursor-pointer hover:shadow-md' : ''}
+        p-4 transition-shadow select-none
+        ${onClick ? "cursor-pointer hover:shadow-md" : ""}
       `}
     >
       <div className="flex flex-col gap-1">
         <div className="text-sm font-medium">
           {formatTime(startTime)} - {formatTime(endTime)}
         </div>
-        <div className="text-xs text-muted-foreground">
-          {groupName}
-        </div>
+        <div className="text-xs text-muted-foreground">{groupName}</div>
       </div>
 
       <div className="flex items-center -space-x-2">
@@ -421,7 +467,9 @@ function TimeSlotsList({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg bg-destructive/5">
-        <p className="text-destructive font-medium">Unable to load availability</p>
+        <p className="text-destructive font-medium">
+          Unable to load availability
+        </p>
         <p className="text-sm text-muted-foreground text-center mt-2">
           {error}
         </p>
@@ -497,23 +545,22 @@ export function GroupAvailabilityView({
     date.setHours(0, 0, 0, 0);
     return date;
   });
-  
+
   // State for draft unavailability ranges
-  const [draftRanges, setDraftRanges] = useState<Map<string, DraftUnavailabilityRange[]>>(
-    new Map()
-  );
+  const [draftRanges, setDraftRanges] = useState<
+    Map<string, DraftUnavailabilityRange[]>
+  >(new Map());
 
   // State for modal
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<AvailabilityWindow | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] =
+    useState<AvailabilityWindow | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // State for saving
   const [isSaving, setIsSaving] = useState(false);
 
-  const { availabilityWindows, loading, error } = useGroupsAvailability(
-    groupIds,
-    selectedDate
-  );
+  const { availabilityWindows, loading, error, refresh } =
+    useGroupsAvailability(groupIds, selectedDate);
 
   const handleDateSelect = (date: Date) => {
     const normalizedDate = new Date(date);
@@ -524,7 +571,10 @@ export function GroupAvailabilityView({
   };
 
   // Handler for creating a new range
-  const handleRangeCreate = (timeSlotId: string, range: UnavailabilityRange) => {
+  const handleRangeCreate = (
+    timeSlotId: string,
+    range: UnavailabilityRange
+  ) => {
     setDraftRanges((prev) => {
       const newMap = new Map(prev);
       const existingRanges = newMap.get(timeSlotId) || [];
@@ -555,7 +605,9 @@ export function GroupAvailabilityView({
     setDraftRanges((prev) => {
       const newMap = new Map(prev);
       const existingRanges = newMap.get(timeSlotId) || [];
-      const filteredRanges = existingRanges.filter((range) => range.id !== rangeId);
+      const filteredRanges = existingRanges.filter(
+        (range) => range.id !== rangeId
+      );
 
       if (filteredRanges.length === 0) {
         newMap.delete(timeSlotId);
@@ -573,7 +625,10 @@ export function GroupAvailabilityView({
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     // Collect all draft ranges
-    const allRanges: Array<{ timeSlotId: string; range: DraftUnavailabilityRange }> = [];
+    const allRanges: Array<{
+      timeSlotId: string;
+      range: DraftUnavailabilityRange;
+    }> = [];
     draftRanges.forEach((ranges, timeSlotId) => {
       ranges.forEach((range) => {
         allRanges.push({ timeSlotId, range });
@@ -589,13 +644,13 @@ export function GroupAvailabilityView({
     try {
       // Create CalendarEvent records for each range
       const createPromises = allRanges.map(async ({ range }) => {
-        const response = await fetch('/api/calendar/timeslots', {
-          method: 'POST',
+        const response = await fetch("/api/calendar/timeslots", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            title: 'Busy',
+            title: "Busy",
             startTime: range.startTime.toISOString(),
             endTime: range.endTime.toISOString(),
             timezone,
@@ -604,7 +659,9 @@ export function GroupAvailabilityView({
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Failed to save unavailability');
+          throw new Error(
+            errorData.error?.message || "Failed to save unavailability"
+          );
         }
 
         return response.json();
@@ -615,14 +672,20 @@ export function GroupAvailabilityView({
       // Clear draft ranges on success
       setDraftRanges(new Map());
 
+      // Refresh availability windows to reflect the new unavailability
+      refresh();
+
       toast.success(
-        `Successfully saved ${allRanges.length} unavailable ${allRanges.length === 1 ? 'period' : 'periods'
+        `Successfully saved ${allRanges.length} unavailable ${
+          allRanges.length === 1 ? "period" : "periods"
         }`
       );
     } catch (err) {
-      console.error('Error saving unavailability ranges:', err);
+      console.error("Error saving unavailability ranges:", err);
       toast.error(
-        err instanceof Error ? err.message : 'Failed to save unavailability ranges'
+        err instanceof Error
+          ? err.message
+          : "Failed to save unavailability ranges"
       );
     } finally {
       setIsSaving(false);
@@ -632,7 +695,7 @@ export function GroupAvailabilityView({
   // Handler for cancelling draft ranges
   const handleCancel = () => {
     setDraftRanges(new Map());
-    toast.info('Cancelled unavailability selection');
+    toast.info("Cancelled unavailability selection");
   };
 
   // Handler for opening modal
@@ -653,7 +716,7 @@ export function GroupAvailabilityView({
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold text-foreground">
-            Select the date you are available
+            Hold and drag to mark unavailable
           </h2>
         </div>
         <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/30">
@@ -673,7 +736,7 @@ export function GroupAvailabilityView({
       {/* Header Section with Confirmation Controls */}
       <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <h2 className="text-2xl font-semibold text-foreground">
-          Select the date you are available
+          Hold and drag to mark unavailable
         </h2>
 
         <ConfirmationControls
@@ -706,13 +769,16 @@ export function GroupAvailabilityView({
         timeSlot={
           selectedTimeSlot
             ? {
-              id: selectedTimeSlot.id,
-              title: `${selectedTimeSlot.groupName} - Available Time`,
-              startTime: new Date(selectedTimeSlot.startTime),
-              endTime: new Date(selectedTimeSlot.endTime),
-              description: `${selectedTimeSlot.participants.length} ${selectedTimeSlot.participants.length === 1 ? 'member' : 'members'
+                id: selectedTimeSlot.id,
+                title: `${selectedTimeSlot.groupName} - Available Time`,
+                startTime: new Date(selectedTimeSlot.startTime),
+                endTime: new Date(selectedTimeSlot.endTime),
+                description: `${selectedTimeSlot.participants.length} ${
+                  selectedTimeSlot.participants.length === 1
+                    ? "member"
+                    : "members"
                 } available`,
-            }
+              }
             : null
         }
       />
