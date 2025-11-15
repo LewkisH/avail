@@ -103,7 +103,7 @@
     - Test full user flow from dashboard
     - _Requirements: 1.1, 1.4_
 
-- [ ] 6. Add error handling and edge cases
+- [x] 6. Add error handling and edge cases
   - Handle groups with no members
   - Handle dates with no availability
   - Handle users not in any groups

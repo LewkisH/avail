@@ -65,7 +65,7 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
           await Promise.all(
             groupIds.map(async (groupId) => {
               try {
-                await fetch(`/api/groups/${groupId}/availability`, {
+                const calcResponse = await fetch(`/api/groups/${groupId}/availability`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -73,6 +73,11 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
                     timezoneOffset
                   }),
                 });
+
+                if (!calcResponse.ok) {
+                  const errorData = await calcResponse.json();
+                  console.error(`Failed to calculate availability for group ${groupId}:`, errorData);
+                }
               } catch (err) {
                 console.error(`Failed to calculate availability for group ${groupId}:`, err);
               }
@@ -83,26 +88,51 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
         // Fetch availability from all groups in parallel
         const responses = await Promise.all(
           groupIds.map(async (groupId) => {
-            const response = await fetch(
-              `/api/groups/${groupId}/availability?date=${dateStr}&timezoneOffset=${timezoneOffset}`
-            );
+            try {
+              const response = await fetch(
+                `/api/groups/${groupId}/availability?date=${dateStr}&timezoneOffset=${timezoneOffset}`
+              );
 
-            if (!response.ok) {
-              throw new Error(`Failed to fetch availability for group ${groupId}`);
+              if (!response.ok) {
+                const errorData = await response.json();
+
+                // Handle specific error cases
+                if (response.status === 404) {
+                  console.error(`Group ${groupId} not found`);
+                  return null;
+                }
+
+                if (response.status === 403) {
+                  console.error(`Access denied to group ${groupId}`);
+                  return null;
+                }
+
+                throw new Error(errorData.error?.message || `Failed to fetch availability for group ${groupId}`);
+              }
+
+              const data = await response.json();
+              return {
+                groupId,
+                groupName: data.groupName || 'Unknown Group',
+                windows: data.windows || [],
+              };
+            } catch (err) {
+              console.error(`Error fetching availability for group ${groupId}:`, err);
+              return null;
             }
-
-            const data = await response.json();
-            return {
-              groupId,
-              groupName: data.groupName || 'Unknown Group',
-              windows: data.windows || [],
-            };
           })
         );
 
+        // Filter out null responses (failed requests)
+        const validResponses = responses.filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (validResponses.length === 0 && groupIds.length > 0) {
+          throw new Error('Unable to load availability from any groups');
+        }
+
         // Aggregate all windows from all groups and deduplicate by ID
         const windowsMap = new Map<string, AvailabilityWindow>();
-        responses.forEach((groupData) => {
+        validResponses.forEach((groupData) => {
           groupData.windows.forEach((window: any) => {
             // Use window ID as key to prevent duplicates
             if (!windowsMap.has(window.id)) {
@@ -354,27 +384,44 @@ function TimeSlotsList({ windows, loading, error }: TimeSlotsListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <p className="text-muted-foreground">Loading availability...</p>
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+          <p className="text-muted-foreground">Loading availability...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <p className="text-destructive">{error}</p>
+      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg bg-destructive/5">
+        <p className="text-destructive font-medium">Unable to load availability</p>
+        <p className="text-sm text-muted-foreground text-center mt-2">
+          {error}
+        </p>
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          Please try again or contact support if the problem persists
+        </p>
       </div>
     );
   }
 
   if (windows.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg">
-        <p className="text-muted-foreground text-center">
-          No availability windows found for this date
+      <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/30">
+        <p className="text-lg font-medium text-muted-foreground text-center">
+          No availability windows for this date
         </p>
         <p className="text-sm text-muted-foreground text-center mt-2">
-          Try selecting a different date or check back later
+          This could mean:
+        </p>
+        <ul className="text-sm text-muted-foreground text-center mt-2 space-y-1">
+          <li>• All group members are busy</li>
+          <li>• Not enough members are available at the same time</li>
+          <li>• Calendar events haven&apos;t been synced yet</li>
+        </ul>
+        <p className="text-sm text-muted-foreground text-center mt-3">
+          Try selecting a different date or updating your calendar
         </p>
       </div>
     );
@@ -415,6 +462,27 @@ export function GroupAvailabilityView({
     normalizedDate.setHours(0, 0, 0, 0);
     setSelectedDate(normalizedDate);
   };
+
+  // Handle case where user is not in any groups
+  if (groupIds.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground">
+            Select the date you are available
+          </h2>
+        </div>
+        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/30">
+          <p className="text-lg font-medium text-muted-foreground text-center">
+            You&apos;re not in any groups yet
+          </p>
+          <p className="text-sm text-muted-foreground text-center mt-2">
+            Join or create a group to see availability windows
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

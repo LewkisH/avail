@@ -24,7 +24,6 @@ describe('GroupAvailabilityService', () => {
   describe('findFreeTimeWindows', () => {
     it('should handle no events - entire day is free', async () => {
       const date = new Date('2025-11-15');
-      const userIds = ['user1'];
 
       jest.mocked(prisma.$transaction).mockImplementation(async (callback: any) => {
         const mockTx = {
@@ -32,11 +31,18 @@ describe('GroupAvailabilityService', () => {
             findMany: jest.fn().mockResolvedValue([]),
           },
           groupMember: {
-            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
           },
           groupAvailability: {
             deleteMany: jest.fn(),
-            create: jest.fn(),
+            create: jest.fn().mockImplementation(async (data: any) => ({
+              id: 'window1',
+              ...data.data,
+              participants: [],
+            })),
           },
         };
         return callback(mockTx);
@@ -54,7 +60,7 @@ describe('GroupAvailabilityService', () => {
     it('should handle overlapping events correctly', async () => {
       const date = new Date('2025-11-15');
       
-      // Events: 11:01-13:00 and 11:11-12:22 (overlapping)
+      // Events: 11:01-13:00 and 11:11-12:22 (overlapping) for user1
       const events = [
         {
           id: '1',
@@ -76,7 +82,10 @@ describe('GroupAvailabilityService', () => {
             findMany: jest.fn().mockResolvedValue(events),
           },
           groupMember: {
-            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
           },
           groupAvailability: {
             deleteMany: jest.fn(),
@@ -112,7 +121,7 @@ describe('GroupAvailabilityService', () => {
     it('should handle adjacent events', async () => {
       const date = new Date('2025-11-15');
       
-      // Events: 10:00-11:00 and 11:00-12:00 (adjacent, no gap)
+      // Events: 10:00-11:00 and 11:00-12:00 (adjacent, no gap) for user1
       const events = [
         {
           id: '1',
@@ -134,7 +143,10 @@ describe('GroupAvailabilityService', () => {
             findMany: jest.fn().mockResolvedValue(events),
           },
           groupMember: {
-            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
           },
           groupAvailability: {
             deleteMany: jest.fn(),
@@ -161,7 +173,7 @@ describe('GroupAvailabilityService', () => {
     it('should handle events with gaps', async () => {
       const date = new Date('2025-11-15');
       
-      // Events: 10:00-11:00 and 14:00-15:00 (with gap)
+      // Events: 10:00-11:00 and 14:00-15:00 (with gap) for user1
       const events = [
         {
           id: '1',
@@ -183,7 +195,10 @@ describe('GroupAvailabilityService', () => {
             findMany: jest.fn().mockResolvedValue(events),
           },
           groupMember: {
-            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
           },
           groupAvailability: {
             deleteMany: jest.fn(),
@@ -215,7 +230,7 @@ describe('GroupAvailabilityService', () => {
     it('should handle multiple overlapping events', async () => {
       const date = new Date('2025-11-15');
       
-      // Events: 10:00-12:00, 11:00-13:00, 11:30-12:30 (all overlapping)
+      // Events: 10:00-12:00, 11:00-13:00, 11:30-12:30 (all overlapping) for user1
       const events = [
         {
           id: '1',
@@ -243,7 +258,10 @@ describe('GroupAvailabilityService', () => {
             findMany: jest.fn().mockResolvedValue(events),
           },
           groupMember: {
-            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
           },
           groupAvailability: {
             deleteMany: jest.fn(),
@@ -323,6 +341,144 @@ describe('GroupAvailabilityService', () => {
 
       // Should have three overlapping free windows
       expect(result.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('error handling and edge cases', () => {
+    it('should return empty array for groups with no members', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.$transaction).mockImplementation(async (callback: any) => {
+        const mockTx = {
+          calendarEvent: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          groupMember: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          groupAvailability: {
+            deleteMany: jest.fn(),
+            create: jest.fn(),
+          },
+        };
+        return callback(mockTx);
+      });
+
+      const result = await GroupAvailabilityService.calculateGroupAvailability({
+        groupId: 'group1',
+        date,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty array for groups with only one member', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.$transaction).mockImplementation(async (callback: any) => {
+        const mockTx = {
+          calendarEvent: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          groupMember: {
+            findMany: jest.fn().mockResolvedValue([{ userId: 'user1' }]),
+          },
+          groupAvailability: {
+            deleteMany: jest.fn(),
+            create: jest.fn(),
+          },
+        };
+        return callback(mockTx);
+      });
+
+      const result = await GroupAvailabilityService.calculateGroupAvailability({
+        groupId: 'group1',
+        date,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.$transaction).mockImplementation(async () => {
+        throw new Error('Database connection failed');
+      });
+
+      await expect(
+        GroupAvailabilityService.calculateGroupAvailability({
+          groupId: 'group1',
+          date,
+        })
+      ).rejects.toThrow('Database connection failed');
+    });
+
+    it('should filter out windows with less than 2 participants', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.$transaction).mockImplementation(async (callback: any) => {
+        const mockTx = {
+          calendarEvent: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          groupMember: {
+            findMany: jest.fn().mockResolvedValue([
+              { userId: 'user1' },
+              { userId: 'user2' },
+            ]),
+          },
+          groupAvailability: {
+            deleteMany: jest.fn(),
+            create: jest.fn().mockImplementation(async (data: any) => ({
+              id: 'window1',
+              ...data.data,
+              participants: data.data.participants.create,
+            })),
+          },
+        };
+        return callback(mockTx);
+      });
+
+      const result = await GroupAvailabilityService.calculateGroupAvailability({
+        groupId: 'group1',
+        date,
+      });
+
+      // All windows should have at least 2 participants
+      result.forEach((window) => {
+        expect(window.participants.length).toBeGreaterThanOrEqual(2);
+      });
+    });
+
+    it('should handle getGroupAvailability with no results', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.groupAvailability.findMany).mockResolvedValue([]);
+
+      const result = await GroupAvailabilityService.getGroupAvailability({
+        groupId: 'group1',
+        date,
+        userId: 'user1',
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle getGroupAvailability database errors', async () => {
+      const date = new Date('2025-11-15');
+
+      jest.mocked(prisma.groupAvailability.findMany).mockRejectedValue(
+        new Error('Database query failed')
+      );
+
+      await expect(
+        GroupAvailabilityService.getGroupAvailability({
+          groupId: 'group1',
+          date,
+          userId: 'user1',
+        })
+      ).rejects.toThrow('Database query failed');
     });
   });
 });

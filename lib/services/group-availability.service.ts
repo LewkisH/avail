@@ -302,70 +302,78 @@ export class GroupAvailabilityService {
     const normalizedDate = new Date(date);
     normalizedDate.setHours(0, 0, 0, 0);
 
-    return await prisma.$transaction(async (tx) => {
-      // Fetch all group members
-      const groupMembers = await tx.groupMember.findMany({
-        where: { groupId },
-        select: { userId: true },
-      });
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // Fetch all group members
+        const groupMembers = await tx.groupMember.findMany({
+          where: { groupId },
+          select: { userId: true },
+        });
 
-      const memberIds = groupMembers.map(m => m.userId);
+        const memberIds = groupMembers.map(m => m.userId);
 
-      // Need at least 2 members to calculate availability
-      if (memberIds.length < 2) {
-        return [];
-      }
+        // Need at least 2 members to calculate availability
+        if (memberIds.length < 2) {
+          console.log(`Group ${groupId} has fewer than 2 members (${memberIds.length}), skipping availability calculation`);
+          return [];
+        }
 
-      // Calculate free time windows for each member
-      const freeTimeByUser = await this.findFreeTimeWindows(memberIds, normalizedDate, tx);
+        // Calculate free time windows for each member
+        const freeTimeByUser = await this.findFreeTimeWindows(memberIds, normalizedDate, tx);
 
-      // Generate availability combinations (prioritizing full group)
-      const availabilityWindows = this.generateAvailabilityCombinations(
-        memberIds,
-        freeTimeByUser
-      );
+        // Generate availability combinations (prioritizing full group)
+        const availabilityWindows = this.generateAvailabilityCombinations(
+          memberIds,
+          freeTimeByUser
+        );
 
-      // Filter to only windows with at least 2 participants
-      const validWindows = availabilityWindows.filter(
-        window => window.participantIds.length >= 2
-      );
+        // Filter to only windows with at least 2 participants
+        const validWindows = availabilityWindows.filter(
+          window => window.participantIds.length >= 2
+        );
 
-      // Delete existing availability for this group/date
-      await tx.groupAvailability.deleteMany({
-        where: {
-          groupId,
-          date: normalizedDate,
-        },
-      });
+        console.log(`Found ${validWindows.length} valid availability windows for group ${groupId} on ${normalizedDate.toISOString()}`);
 
-      // Store new availability windows
-      const createdWindows = [];
-      for (const window of validWindows) {
-        const created = await tx.groupAvailability.create({
-          data: {
+        // Delete existing availability for this group/date
+        await tx.groupAvailability.deleteMany({
+          where: {
             groupId,
             date: normalizedDate,
-            startTime: window.startTime,
-            endTime: window.endTime,
-            participants: {
-              create: window.participantIds.map(userId => ({
-                userId,
-              })),
-            },
-          },
-          include: {
-            participants: {
-              include: {
-                user: true,
-              },
-            },
           },
         });
-        createdWindows.push(created);
-      }
 
-      return createdWindows;
-    });
+        // Store new availability windows
+        const createdWindows = [];
+        for (const window of validWindows) {
+          const created = await tx.groupAvailability.create({
+            data: {
+              groupId,
+              date: normalizedDate,
+              startTime: window.startTime,
+              endTime: window.endTime,
+              participants: {
+                create: window.participantIds.map(userId => ({
+                  userId,
+                })),
+              },
+            },
+            include: {
+              participants: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          });
+          createdWindows.push(created);
+        }
+
+        return createdWindows;
+      });
+    } catch (error) {
+      console.error(`Error calculating group availability for group ${groupId}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -381,36 +389,43 @@ export class GroupAvailabilityService {
     const normalizedDate = new Date(date);
     normalizedDate.setHours(0, 0, 0, 0);
 
-    // Fetch availability windows for this group and date
-    const availabilityWindows = await prisma.groupAvailability.findMany({
-      where: {
-        groupId,
-        date: normalizedDate,
-      },
-      include: {
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+    try {
+      // Fetch availability windows for this group and date
+      const availabilityWindows = await prisma.groupAvailability.findMany({
+        where: {
+          groupId,
+          date: normalizedDate,
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        startTime: 'asc',
-      },
-    });
+        orderBy: {
+          startTime: 'asc',
+        },
+      });
 
-    // Filter to only windows where the requesting user is a participant
-    const userWindows = availabilityWindows.filter((window) =>
-      window.participants.some((p) => p.userId === userId)
-    );
+      // Filter to only windows where the requesting user is a participant
+      const userWindows = availabilityWindows.filter((window) =>
+        window.participants.some((p) => p.userId === userId)
+      );
 
-    return userWindows;
+      console.log(`Found ${userWindows.length} availability windows for user ${userId} in group ${groupId} on ${normalizedDate.toISOString()}`);
+
+      return userWindows;
+    } catch (error) {
+      console.error(`Error fetching group availability for group ${groupId}:`, error);
+      throw error;
+    }
   }
 
   /**

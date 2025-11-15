@@ -101,6 +101,47 @@ export async function GET(
   }
 
   try {
+    // Fetch group and verify it exists
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: {
+        name: true,
+        _count: {
+          select: { members: true }
+        }
+      },
+    });
+
+    if (!group) {
+      await prisma.$disconnect();
+      return NextResponse.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: "Group not found",
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check if group has enough members (at least 2)
+    if (group._count.members < 2) {
+      await prisma.$disconnect();
+      return NextResponse.json({
+        groupId,
+        groupName: group.name,
+        date: dateParam,
+        windows: [],
+        message: "Group needs at least 2 members to calculate availability",
+      });
+    }
+
+    await prisma.$disconnect();
+
     // Fetch availability windows for the group and date
     const availabilityWindows = await GroupAvailabilityService.getGroupAvailability({
       groupId,
@@ -108,19 +149,10 @@ export async function GET(
       userId: authResult.user.id,
     });
 
-    // Fetch group name
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-      select: { name: true },
-    });
-    await prisma.$disconnect();
-
     // Format response
     const response = {
       groupId,
-      groupName: group?.name || 'Unknown Group',
+      groupName: group.name,
       date: dateParam,
       windows: availabilityWindows.map((window: any) => ({
         id: window.id,
@@ -247,6 +279,45 @@ export async function POST(
     }
 
     console.log('Calling calculateGroupAvailability with date:', date.toISOString());
+
+    // Verify group exists and has enough members
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: {
+        name: true,
+        _count: {
+          select: { members: true }
+        }
+      },
+    });
+
+    if (!group) {
+      await prisma.$disconnect();
+      return NextResponse.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: "Group not found",
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    if (group._count.members < 2) {
+      await prisma.$disconnect();
+      return NextResponse.json({
+        success: false,
+        message: "Group needs at least 2 members to calculate availability",
+        groupId,
+        date: dateParam,
+      });
+    }
+
+    await prisma.$disconnect();
 
     // Trigger recalculation
     await GroupAvailabilityService.calculateGroupAvailability({
