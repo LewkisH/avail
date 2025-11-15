@@ -54,9 +54,10 @@ export async function POST(
     }
 
     const { email } = validation.data;
+    const normalizedEmail = email.toLowerCase();
     const invitation = await GroupService.inviteToGroup(
       groupId,
-      email,
+      normalizedEmail,
       authResult.user.id
     );
 

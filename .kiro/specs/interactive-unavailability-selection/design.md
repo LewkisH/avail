@@ -34,17 +34,16 @@ CalendarView (existing)
 
 The feature uses React state at the CalendarView level to manage:
 
-1. **Draft unavailability ranges**: Array of ranges being created/edited
+1. **Draft unavailability ranges**: Array of ranges being created/edited (client-side only until confirmed)
 2. **Interaction state**: Current drag operation, selected range, etc.
 3. **Confirmation mode**: Whether confirmation controls should be visible
 
 ```typescript
-interface UnavailabilityRange {
-  id: string; // Temporary ID for draft ranges
+interface DraftUnavailabilityRange {
+  id: string; // Temporary client-side ID (e.g., uuid)
   timeSlotId: string;
   startTime: Date;
   endTime: Date;
-  isNew: boolean; // Distinguishes new ranges from persisted ones
 }
 
 interface DragState {
@@ -52,7 +51,7 @@ interface DragState {
   dragType: 'create' | 'resize-start' | 'resize-end' | null;
   timeSlotId: string | null;
   startPosition: number | null;
-  currentRange: UnavailabilityRange | null;
+  currentRange: DraftUnavailabilityRange | null;
 }
 ```
 
@@ -267,86 +266,65 @@ interface TimeSlotModalProps {
 
 ## Data Models
 
-### Database Schema Addition
+### Using Existing CalendarEvent Model
 
-Add a new model to store unavailability ranges:
+No new database tables are needed. When the user confirms unavailability ranges, they are converted into CalendarEvent records with `source: 'manual'`. This represents "busy" time in the user's calendar.
 
-```prisma
-model UnavailabilityRange {
-  id              String        @id @default(uuid())
-  calendarEventId String
-  startTime       DateTime
-  endTime         DateTime
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
-
-  @@index([calendarEventId])
-  @@index([startTime])
-}
-```
-
-Update CalendarEvent model:
+The existing CalendarEvent model already has all necessary fields:
 ```prisma
 model CalendarEvent {
-  // ... existing fields
-  unavailabilityRanges UnavailabilityRange[]
+  id          String      @id @default(uuid())
+  userId      String
+  title       String
+  description String?     @db.Text
+  startTime   DateTime
+  endTime     DateTime
+  timezone    String
+  location    String?
+  source      EventSource // Will be 'manual'
+  sourceId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 ```
 
 ### API Endpoints
 
-#### POST /api/calendar/timeslots/[id]/unavailability
+#### POST /api/calendar/timeslots
 
-Create unavailability ranges for a time slot
+Create busy time events (reuse existing endpoint)
+
+When confirming unavailability ranges, create CalendarEvent records for each range with:
+- `title`: "Busy" or user-specified title
+- `source`: "manual"
+- `startTime` and `endTime`: The unavailability range times
+- `userId`: Current user
 
 **Request**:
 ```typescript
 {
-  ranges: Array<{
-    startTime: string; // ISO 8601
-    endTime: string;   // ISO 8601
-  }>;
+  title: string;
+  startTime: string; // ISO 8601
+  endTime: string;   // ISO 8601
+  timezone: string;
 }
 ```
 
 **Response**:
 ```typescript
 {
-  timeSlotId: string;
-  ranges: Array<{
-    id: string;
-    startTime: string;
-    endTime: string;
-  }>;
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  // ... other CalendarEvent fields
 }
 ```
 
 **Validation**:
-- All ranges must be within the time slot bounds
-- Ranges must not overlap
 - Start time must be before end time
 - Times must align to 15-minute intervals
-
-#### GET /api/calendar/timeslots/[id]/unavailability
-
-Fetch unavailability ranges for a time slot
-
-**Response**:
-```typescript
-{
-  ranges: Array<{
-    id: string;
-    startTime: string;
-    endTime: string;
-  }>;
-}
-```
-
-#### DELETE /api/calendar/timeslots/[id]/unavailability
-
-Delete all unavailability ranges for a time slot (used when cancelling)
+- User must be authenticated
 
 ## Interaction Flows
 
@@ -415,13 +393,18 @@ sequenceDiagram
 
     User->>ConfirmationControls: Click "Confirm Unavailables"
     ConfirmationControls->>CalendarView: onConfirm
-    CalendarView->>API: POST /api/calendar/timeslots/[id]/unavailability
-    API->>API: Validate ranges
-    API->>API: Save to database
-    API-->>CalendarView: Success response
+    
+    loop For each draft range
+        CalendarView->>API: POST /api/calendar/timeslots
+        Note over API: Create CalendarEvent with<br/>source='manual', title='Busy'
+        API->>API: Validate range
+        API->>API: Save as CalendarEvent
+        API-->>CalendarView: Success response
+    end
+    
     CalendarView->>CalendarView: Clear draft state
     CalendarView->>CalendarView: Hide confirmation controls
-    CalendarView->>CalendarView: Refresh time slots
+    CalendarView->>CalendarView: Refresh calendar view
 ```
 
 ### Flow 4: Simple Click (No Drag)

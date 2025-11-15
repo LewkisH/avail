@@ -302,4 +302,26 @@ export class GroupService {
 
         return memberships.map((membership) => membership.group);
     }
+
+    /**
+     * Get all groups owned by a user
+     * @param userId - User ID
+     * @returns Array of groups owned by the user
+     */
+    static async getUserOwnedGroups(userId: string) {
+        return await prisma.group.findMany({
+            where: { ownerId: userId },
+            include: {
+                owner: true,
+                members: {
+                    include: {
+                        user: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
 }

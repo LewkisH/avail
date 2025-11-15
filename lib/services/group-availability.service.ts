@@ -153,75 +153,83 @@ export class GroupAvailabilityService {
       const userEvents = eventsByUser.get(userId) || [];
 
       // Parse sleep times (format: "HH:MM" stored as UTC)
-      // These represent UTC hours, so we apply them directly to the UTC day
-      const [startHour, startMinute] = sleepTime.startTime
-        .split(":")
-        .map(Number);
+      const [startHour, startMinute] = sleepTime.startTime.split(":").map(Number);
       const [endHour, endMinute] = sleepTime.endTime.split(":").map(Number);
 
-      // We need to consider the sleep period that overlaps with our day window
-      // Sleep could start:
-      // 1. On the day before and end during our day (e.g., 22:00 yesterday → 06:00 today)
-      // 2. During our day (e.g., 00:00 today → 09:00 today)
-      // 3. During our day and extend to next day (e.g., 23:00 today → 07:00 tomorrow)
-
-      // Try placing sleep start on the day before our window
-      const sleepStartYesterday = new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
-      sleepStartYesterday.setUTCHours(startHour, startMinute, 0, 0);
-      let sleepEndFromYesterday = new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
-      sleepEndFromYesterday.setUTCHours(endHour, endMinute, 0, 0);
-      if (sleepEndFromYesterday <= sleepStartYesterday) {
-        sleepEndFromYesterday = new Date(sleepEndFromYesterday.getTime() + 24 * 60 * 60 * 1000);
-      }
-
-      // Try placing sleep start on our target day
-      const sleepStartToday = new Date(dayStart);
-      sleepStartToday.setUTCHours(startHour, startMinute, 0, 0);
-      let sleepEndFromToday = new Date(dayStart);
-      sleepEndFromToday.setUTCHours(endHour, endMinute, 0, 0);
-      if (sleepEndFromToday <= sleepStartToday) {
-        sleepEndFromToday = new Date(sleepEndFromToday.getTime() + 24 * 60 * 60 * 1000);
-      }
-
       console.log(`User ${userId} - Sleep time conversion:`);
-      console.log(
-        `  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`
-      );
+      console.log(`  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`);
+      console.log(`  Day window: ${dayStart.toISOString()} → ${dayEnd.toISOString()}`);
 
-      // Check which sleep periods overlap with our day window [dayStart, dayEnd]
       const periodsToAdd: Array<{ startTime: Date; endTime: Date }> = [];
 
-      // Check sleep from yesterday
-      if (sleepEndFromYesterday > dayStart && sleepStartYesterday < dayEnd) {
-        const overlapStart = sleepStartYesterday < dayStart ? dayStart : sleepStartYesterday;
-        const overlapEnd = sleepEndFromYesterday > dayEnd ? dayEnd : sleepEndFromYesterday;
-        periodsToAdd.push({
-          startTime: overlapStart,
-          endTime: overlapEnd,
-        });
-        console.log(
-          `  Sleep from yesterday overlaps: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
-        );
+      // We need to check 3 potential sleep periods that could overlap with our day:
+      // 1. Yesterday's sleep (started day before, might end during our day)
+      // 2. Today's sleep (starts during our day)
+      // 3. Tomorrow's sleep (might start during our day if sleep hour < day end hour)
+
+      // Helper to create sleep period on a specific UTC date
+      const createSleepPeriod = (baseDate: Date) => {
+        const start = new Date(baseDate);
+        start.setUTCHours(startHour, startMinute, 0, 0);
+        
+        let end = new Date(baseDate);
+        end.setUTCHours(endHour, endMinute, 0, 0);
+        
+        // If end time <= start time, sleep extends to next day
+        if (end <= start) {
+          end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        return { start, end };
+      };
+
+      // 1. Check yesterday's sleep (started on day-1, might end during our day)
+      const yesterdayBase = new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdaySleep = createSleepPeriod(yesterdayBase);
+      
+      console.log(`  Yesterday's sleep: ${yesterdaySleep.start.toISOString()} → ${yesterdaySleep.end.toISOString()}`);
+      
+      if (yesterdaySleep.end > dayStart && yesterdaySleep.start < dayEnd) {
+        const overlapStart = yesterdaySleep.start < dayStart ? dayStart : yesterdaySleep.start;
+        const overlapEnd = yesterdaySleep.end > dayEnd ? dayEnd : yesterdaySleep.end;
+        periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
+        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
       }
 
-      // Check sleep from today (only if it doesn't duplicate yesterday's sleep)
-      if (sleepStartToday >= dayStart && sleepStartToday < dayEnd) {
-        const overlapEnd = sleepEndFromToday > dayEnd ? dayEnd : sleepEndFromToday;
-        periodsToAdd.push({
-          startTime: sleepStartToday,
-          endTime: overlapEnd,
-        });
-        console.log(
-          `  Sleep from today overlaps: ${sleepStartToday.toISOString()} → ${overlapEnd.toISOString()}`
-        );
+      // 2. Check today's sleep (starts on our day)
+      const todaySleep = createSleepPeriod(dayStart);
+      
+      console.log(`  Today's sleep: ${todaySleep.start.toISOString()} → ${todaySleep.end.toISOString()}`);
+      
+      if (todaySleep.end > dayStart && todaySleep.start < dayEnd) {
+        const overlapStart = todaySleep.start < dayStart ? dayStart : todaySleep.start;
+        const overlapEnd = todaySleep.end > dayEnd ? dayEnd : todaySleep.end;
+        periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
+        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
+      }
+
+      // 3. Check tomorrow's sleep (might start during our day)
+      const tomorrowBase = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const tomorrowSleep = createSleepPeriod(tomorrowBase);
+      
+      console.log(`  Tomorrow's sleep: ${tomorrowSleep.start.toISOString()} → ${tomorrowSleep.end.toISOString()}`);
+      
+      if (tomorrowSleep.end > dayStart && tomorrowSleep.start < dayEnd) {
+        const overlapStart = tomorrowSleep.start < dayStart ? dayStart : tomorrowSleep.start;
+        const overlapEnd = tomorrowSleep.end > dayEnd ? dayEnd : tomorrowSleep.end;
+        periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
+        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
       }
 
       // Add all overlapping sleep periods to user events
+      console.log(`  periodsToAdd count: ${periodsToAdd.length}`);
       for (const period of periodsToAdd) {
+        console.log(`  Adding sleep period: ${period.startTime.toISOString()} → ${period.endTime.toISOString()}`);
         userEvents.push(period);
       }
 
       eventsByUser.set(userId, userEvents);
+      console.log(`  Total events for user after adding sleep: ${userEvents.length}`);
     }
     console.log("");
 
@@ -231,6 +239,7 @@ export class GroupAvailabilityService {
 
     for (const userId of userIds) {
       const userEvents = eventsByUser.get(userId) || [];
+      console.log(`User ${userId} has ${userEvents.length} total events (calendar + sleep)`);
       const freeWindows: TimeRange[] = [];
 
       if (userEvents.length === 0) {
