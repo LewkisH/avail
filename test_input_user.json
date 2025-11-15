@@ -1,0 +1,197 @@
+{
+  "users": [
+    {
+      "id": "anna",
+      "name": "Anna",
+      "group": "autistid",
+      "calendar_busy": [
+        { "start": "2025-11-16T11:00:00", "end": "2025-11-16T13:00:00", "summary": "Group project meeting" },
+        { "start": "2025-11-16T18:00:00", "end": "2025-11-16T20:00:00", "summary": "Movie night with friends" },
+        { "start": "2025-11-17T09:00:00", "end": "2025-11-17T17:00:00", "summary": "School" },
+        { "start": "2025-11-18T09:00:00", "end": "2025-11-18T17:00:00", "summary": "School" },
+        { "start": "2025-11-19T09:00:00", "end": "2025-11-19T17:00:00", "summary": "School" },
+        { "start": "2025-11-20T09:00:00", "end": "2025-11-20T17:00:00", "summary": "School" },
+        { "start": "2025-11-21T09:00:00", "end": "2025-11-21T17:00:00", "summary": "School" },
+        { "start": "2025-11-18T18:30:00", "end": "2025-11-18T20:30:00", "summary": "Gym workout" },
+        { "start": "2025-11-20T18:30:00", "end": "2025-11-20T20:30:00", "summary": "Gym workout" },
+        { "start": "2025-11-22T14:00:00", "end": "2025-11-22T17:00:00", "summary": "Board games at friend's place" }
+      ]
+    },
+    {
+      "id": "karl",
+      "name": "Karl",
+      "group": "autistid",
+      "calendar_busy": [
+        { "start": "2025-11-16T10:00:00", "end": "2025-11-16T13:00:00", "summary": "Nature photography walk" },
+        { "start": "2025-11-17T10:00:00", "end": "2025-11-17T13:00:00", "summary": "City photography walk" },
+        { "start": "2025-11-19T10:00:00", "end": "2025-11-19T13:00:00", "summary": "Park photography walk" },
+        { "start": "2025-11-21T10:00:00", "end": "2025-11-21T13:00:00", "summary": "Street photography walk" },
+        { "start": "2025-11-18T18:00:00", "end": "2025-11-18T20:00:00", "summary": "Language class" },
+        { "start": "2025-11-20T18:00:00", "end": "2025-11-20T20:00:00", "summary": "Language class" },
+        { "start": "2025-11-18T14:00:00", "end": "2025-11-18T16:00:00", "summary": "Photo editing" },
+        { "start": "2025-11-22T15:00:00", "end": "2025-11-22T17:00:00", "summary": "Photography meetup" }
+      ]
+    },
+    {
+      "id": "sara",
+      "name": "Sara",
+      "group": "autistid",
+      "calendar_busy": [
+        { "start": "2025-11-16T10:00:00", "end": "2025-11-16T12:00:00", "summary": "Coffee with friend" },
+        { "start": "2025-11-17T07:00:00", "end": "2025-11-17T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-19T07:00:00", "end": "2025-11-19T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-21T07:00:00", "end": "2025-11-21T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-18T10:00:00", "end": "2025-11-18T12:00:00", "summary": "Day-off workout" },
+        { "start": "2025-11-20T10:00:00", "end": "2025-11-20T12:00:00", "summary": "Day-off workout" },
+        { "start": "2025-11-22T10:00:00", "end": "2025-11-22T12:00:00", "summary": "Weekend workout" },
+        { "start": "2025-11-18T18:00:00", "end": "2025-11-18T20:00:00", "summary": "Dinner with siblings" }
+      ]
+    },
+    {
+      "id": "leo",
+      "name": "Leo",
+      "group": "autistid",
+      "calendar_busy": [
+        { "start": "2025-11-16T09:00:00", "end": "2025-11-16T11:00:00", "summary": "Morning run" },
+        { "start": "2025-11-18T07:00:00", "end": "2025-11-18T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-20T07:00:00", "end": "2025-11-20T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-22T07:00:00", "end": "2025-11-22T19:00:00", "summary": "Work shift" },
+        { "start": "2025-11-17T11:00:00", "end": "2025-11-17T13:00:00", "summary": "Day-off workout" },
+        { "start": "2025-11-19T11:00:00", "end": "2025-11-19T13:00:00", "summary": "Day-off workout" },
+        { "start": "2025-11-21T11:00:00", "end": "2025-11-21T13:00:00", "summary": "Day-off workout" },
+        { "start": "2025-11-19T18:00:00", "end": "2025-11-19T20:00:00", "summary": "Cinema night" }
+      ]
+    },
+    {
+      "id": "mark",
+      "name": "Mark",
+      "group": "lauajalad",
+      "calendar_busy": [
+        { "start": "2025-11-16T10:00:00", "end": "2025-11-16T12:00:00", "summary": "Study group" },
+        { "start": "2025-11-17T09:00:00", "end": "2025-11-17T17:00:00", "summary": "School" },
+        { "start": "2025-11-19T09:00:00", "end": "2025-11-19T17:00:00", "summary": "School" },
+        { "start": "2025-11-21T09:00:00", "end": "2025-11-21T17:00:00", "summary": "School" },
+        { "start": "2025-11-18T13:00:00", "end": "2025-11-18T15:00:00", "summary": "Lab project work" },
+        { "start": "2025-11-18T19:00:00", "end": "2025-11-18T21:00:00", "summary": "Evening workout" },
+        { "start": "2025-11-20T10:00:00", "end": "2025-11-20T12:00:00", "summary": "Library - exam prep" },
+        { "start": "2025-11-20T18:00:00", "end": "2025-11-20T20:00:00", "summary": "Online gaming with friends" },
+        { "start": "2025-11-22T11:00:00", "end": "2025-11-22T13:00:00", "summary": "Weekend workout" }
+      ]
+    },
+    {
+      "id": "mia",
+      "name": "Mia",
+      "group": "lauajalad",
+      "calendar_busy": [
+        { "start": "2025-11-16T16:00:00", "end": "2025-11-16T20:00:00", "summary": "Dungeons & Dragons session" },
+        { "start": "2025-11-17T14:00:00", "end": "2025-11-17T16:00:00", "summary": "Gym session" },
+        { "start": "2025-11-19T14:00:00", "end": "2025-11-19T16:00:00", "summary": "Gym session" },
+        { "start": "2025-11-21T14:00:00", "end": "2025-11-21T16:00:00", "summary": "Gym session" },
+        { "start": "2025-11-18T18:00:00", "end": "2025-11-18T20:00:00", "summary": "Dance class" },
+        { "start": "2025-11-20T18:00:00", "end": "2025-11-20T20:00:00", "summary": "Dance class" },
+        { "start": "2025-11-18T11:00:00", "end": "2025-11-18T13:00:00", "summary": "Brunch with friend" },
+        { "start": "2025-11-22T11:00:00", "end": "2025-11-22T13:00:00", "summary": "Art workshop" }
+      ]
+    },
+    {
+      "id": "eva",
+      "name": "Eva",
+      "group": "lauajalad",
+      "calendar_busy": [
+        { "start": "2025-11-16T11:00:00", "end": "2025-11-16T13:00:00", "summary": "Brunch with friends" },
+        { "start": "2025-11-17T09:00:00", "end": "2025-11-17T17:00:00", "summary": "Work" },
+        { "start": "2025-11-18T09:00:00", "end": "2025-11-18T17:00:00", "summary": "Work" },
+        { "start": "2025-11-19T09:00:00", "end": "2025-11-19T17:00:00", "summary": "Work" },
+        { "start": "2025-11-20T09:00:00", "end": "2025-11-20T17:00:00", "summary": "Work" },
+        { "start": "2025-11-21T09:00:00", "end": "2025-11-21T17:00:00", "summary": "Work" },
+        { "start": "2025-11-17T18:00:00", "end": "2025-11-17T19:00:00", "summary": "Yoga" },
+        { "start": "2025-11-20T18:00:00", "end": "2025-11-20T19:00:00", "summary": "Yoga" },
+        { "start": "2025-11-19T19:00:00", "end": "2025-11-19T21:00:00", "summary": "Climbing gym" },
+        { "start": "2025-11-22T12:00:00", "end": "2025-11-22T15:00:00", "summary": "Shopping & errands" }
+      ]
+    },
+    {
+      "id": "liis",
+      "name": "Liis",
+      "group": "muumid",
+      "calendar_busy": [
+        { "start": "2025-11-16T15:00:00", "end": "2025-11-16T17:00:00", "summary": "Visit parents" },
+        { "start": "2025-11-18T09:00:00", "end": "2025-11-18T15:00:00", "summary": "School" },
+        { "start": "2025-11-19T09:00:00", "end": "2025-11-19T15:00:00", "summary": "School" },
+        { "start": "2025-11-20T09:00:00", "end": "2025-11-20T15:00:00", "summary": "School" },
+        { "start": "2025-11-21T09:00:00", "end": "2025-11-21T15:00:00", "summary": "School" },
+        { "start": "2025-11-17T11:00:00", "end": "2025-11-17T14:00:00", "summary": "Project work at campus" },
+        { "start": "2025-11-19T18:00:00", "end": "2025-11-19T20:00:00", "summary": "Dance class" },
+        { "start": "2025-11-22T12:00:00", "end": "2025-11-22T20:00:00", "summary": "Weekend part-time job" }
+      ]
+    },
+    {
+      "id": "tom",
+      "name": "Tom",
+      "group": "muumid",
+      "calendar_busy": [
+        { "start": "2025-11-16T09:00:00", "end": "2025-11-16T12:00:00", "summary": "Family time at playground" },
+        { "start": "2025-11-17T08:00:00", "end": "2025-11-17T10:00:00", "summary": "Childcare (morning)" },
+        { "start": "2025-11-17T15:00:00", "end": "2025-11-17T19:00:00", "summary": "Childcare (afternoon)" },
+        { "start": "2025-11-18T08:00:00", "end": "2025-11-18T10:00:00", "summary": "Childcare (morning)" },
+        { "start": "2025-11-18T15:00:00", "end": "2025-11-18T19:00:00", "summary": "Childcare (afternoon)" },
+        { "start": "2025-11-19T08:00:00", "end": "2025-11-19T10:00:00", "summary": "Childcare (morning)" },
+        { "start": "2025-11-19T15:00:00", "end": "2025-11-19T19:00:00", "summary": "Childcare (afternoon)" },
+        { "start": "2025-11-20T08:00:00", "end": "2025-11-20T10:00:00", "summary": "Childcare (morning)" },
+        { "start": "2025-11-20T15:00:00", "end": "2025-11-20T19:00:00", "summary": "Childcare (afternoon)" },
+        { "start": "2025-11-19T20:00:00", "end": "2025-11-19T22:00:00", "summary": "Football with friends" },
+        { "start": "2025-11-22T18:00:00", "end": "2025-11-22T21:00:00", "summary": "Band practice" }
+      ]
+    },
+    {
+      "id": "john",
+      "name": "John",
+      "group": "muumid",
+      "calendar_busy": [
+        { "start": "2025-11-16T15:00:00", "end": "2025-11-16T17:00:00", "summary": "Visit family" },
+        { "start": "2025-11-17T09:00:00", "end": "2025-11-17T17:00:00", "summary": "Work" },
+        { "start": "2025-11-18T09:00:00", "end": "2025-11-18T17:00:00", "summary": "Work" },
+        { "start": "2025-11-19T09:00:00", "end": "2025-11-19T17:00:00", "summary": "Work" },
+        { "start": "2025-11-20T09:00:00", "end": "2025-11-20T17:00:00", "summary": "Work" },
+        { "start": "2025-11-21T09:00:00", "end": "2025-11-21T17:00:00", "summary": "Work" },
+        { "start": "2025-11-18T18:00:00", "end": "2025-11-18T21:00:00", "summary": "Evening programming course" },
+        { "start": "2025-11-20T19:00:00", "end": "2025-11-20T21:00:00", "summary": "Football practice" },
+        { "start": "2025-11-22T10:00:00", "end": "2025-11-22T12:00:00", "summary": "Car maintenance" }
+      ]
+    }
+  ],
+  "groups": [
+    { "id": "autistid", "name": "Autistid", "members": ["anna", "karl", "sara", "leo"] },
+    { "id": "lauajalad", "name": "Lauajalad", "members": ["mark", "mia", "eva"] },
+    { "id": "muumid", "name": "Muumid", "members": ["liis", "tom", "john"] }
+  ],
+  "activities": [
+    { "id": "a1", "name": "Jalgpalli õhtu", "start": "2025-11-16T12:00:00", "end": "2025-11-16T14:00:00", "location": "Telliskivi Loomelinnak", "price_eur": 10, "distance_km": 1.0 },
+    { "id": "a2", "name": "Bingoõhtu", "start": "2025-11-16T14:00:00", "end": "2025-11-16T16:00:00", "location": "Viru Keskus", "price_eur": 15, "distance_km": 2.0 },
+    { "id": "a3", "name": "Lauamänguõhtu", "start": "2025-11-16T16:00:00", "end": "2025-11-16T18:00:00", "location": "Balti Jaama Turg", "price_eur": 20, "distance_km": 4.0 },
+    { "id": "a4", "name": "Kinoseanss", "start": "2025-11-16T18:00:00", "end": "2025-11-16T20:00:00", "location": "Solaris Keskus", "price_eur": 12, "distance_km": 3.0 },
+    { "id": "a5", "name": "Karaoke", "start": "2025-11-16T20:00:00", "end": "2025-11-16T22:00:00", "location": "Noblessner", "price_eur": 18, "distance_km": 7.0 },
+    { "id": "a6", "name": "Spordisaal + sauna #1", "start": "2025-11-17T18:00:00", "end": "2025-11-17T20:00:00", "location": "MyFitness Ülemiste", "price_eur": 12, "distance_km": 2.5 },
+    { "id": "a7", "name": "Pubi viktoriin #1", "start": "2025-11-17T20:00:00", "end": "2025-11-17T22:00:00", "location": "Telliskivi Loomelinnak", "price_eur": 10, "distance_km": 1.2 },
+    { "id": "a8", "name": "Hiline kino #1", "start": "2025-11-17T22:00:00", "end": "2025-11-18T00:00:00", "location": "Coca-Cola Plaza", "price_eur": 11, "distance_km": 3.5 },
+    { "id": "a9", "name": "Spordisaal + sauna #2", "start": "2025-11-18T18:00:00", "end": "2025-11-18T20:00:00", "location": "MyFitness Ülemiste", "price_eur": 14, "distance_km": 2.5 },
+    { "id": "a10", "name": "Pubi viktoriin #2", "start": "2025-11-18T20:00:00", "end": "2025-11-18T22:00:00", "location": "Telliskivi Loomelinnak", "price_eur": 12, "distance_km": 1.2 },
+    { "id": "a11", "name": "Hiline kino #2", "start": "2025-11-18T22:00:00", "end": "2025-11-19T00:00:00", "location": "Coca-Cola Plaza", "price_eur": 13, "distance_km": 3.5 },
+    { "id": "a12", "name": "Spordisaal + sauna #3", "start": "2025-11-19T18:00:00", "end": "2025-11-19T20:00:00", "location": "MyFitness Ülemiste", "price_eur": 16, "distance_km": 2.5 },
+    { "id": "a13", "name": "Pubi viktoriin #3", "start": "2025-11-19T20:00:00", "end": "2025-11-19T22:00:00", "location": "Telliskivi Loomelinnak", "price_eur": 14, "distance_km": 1.2 },
+    { "id": "a14", "name": "Hiline kino #3", "start": "2025-11-19T22:00:00", "end": "2025-11-20T00:00:00", "location": "Coca-Cola Plaza", "price_eur": 15, "distance_km": 3.5 },
+    { "id": "a15", "name": "Spordisaal + sauna #4", "start": "2025-11-20T18:00:00", "end": "2025-11-20T20:00:00", "location": "MyFitness Ülemiste", "price_eur": 18, "distance_km": 2.5 },
+    { "id": "a16", "name": "Pubi viktoriin #4", "start": "2025-11-20T20:00:00", "end": "2025-11-20T22:00:00", "location": "Telliskivi Loomelinnak", "price_eur": 16, "distance_km": 1.2 },
+    { "id": "a17", "name": "Hiline kino #4", "start": "2025-11-20T22:00:00", "end": "2025-11-21T00:00:00", "location": "Coca-Cola Plaza", "price_eur": 17, "distance_km": 3.5 },
+    { "id": "a18", "name": "Afterwork joogid", "start": "2025-11-21T16:00:00", "end": "2025-11-21T18:00:00", "location": "Viru Keskus", "price_eur": 20, "distance_km": 2.0 },
+    { "id": "a19", "name": "Karaoke reede", "start": "2025-11-21T18:00:00", "end": "2025-11-21T20:00:00", "location": "Balti Jaama Turg", "price_eur": 25, "distance_km": 7.0 },
+    { "id": "a20", "name": "Öine kinoseanss", "start": "2025-11-21T20:00:00", "end": "2025-11-21T22:00:00", "location": "Coca-Cola Plaza", "price_eur": 15, "distance_km": 1.5 },
+    { "id": "a21", "name": "Põgenemistuba", "start": "2025-11-21T22:00:00", "end": "2025-11-22T00:00:00", "location": "Noblessner", "price_eur": 55, "distance_km": 1.0 },
+    { "id": "a22", "name": "Brunš & kohv", "start": "2025-11-22T12:00:00", "end": "2025-11-22T14:00:00", "location": "Rotermanni kvartal", "price_eur": 18, "distance_km": 1.0 },
+    { "id": "a23", "name": "VR mängukeskus", "start": "2025-11-22T14:00:00", "end": "2025-11-22T16:00:00", "location": "T1 Mall of Tallinn", "price_eur": 30, "distance_km": 6.0 },
+    { "id": "a24", "name": "Linnatuur jalutuskäiguga", "start": "2025-11-22T16:00:00", "end": "2025-11-22T18:00:00", "location": "Vanalinn", "price_eur": 8, "distance_km": 0.8 },
+    { "id": "a25", "name": "Teatriõhtu", "start": "2025-11-22T18:00:00", "end": "2025-11-22T20:00:00", "location": "Eesti Draamateater", "price_eur": 35, "distance_km": 2.0 },
+    { "id": "a26", "name": "Bingo maraton", "start": "2025-11-22T20:00:00", "end": "2025-11-22T22:00:00", "location": "Viru Keskus", "price_eur": 30, "distance_km": 1.0 },
+    { "id": "a27", "name": "Lauamängu maraton", "start": "2025-11-22T22:00:00", "end": "2025-11-23T00:00:00", "location": "Balti Jaama Turg", "price_eur": 40, "distance_km": 2.0 }
+  ]
+}

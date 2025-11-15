@@ -1,0 +1,22 @@
+{
+  "users": [
+    { "id": "u1", "email": "alice@example.com", "name": "Alice" },
+    { "id": "u2", "email": "bob@example.com", "name": "Bob" }
+  ],
+  "calendarEvents": [
+    { "id": "ev1", "userId": "u1", "title": "Meeting", "startTime": "2025-11-16T09:00:00Z", "endTime": "2025-11-16T10:00:00Z", "timezone": "UTC" },
+    { "id": "ev2", "userId": "u2", "title": "Doctor", "startTime": "2025-11-16T18:30:00Z", "endTime": "2025-11-16T19:30:00Z", "timezone": "UTC" }
+  ],
+  "groups": [
+    { "id": "g1", "name": "Friends", "ownerId": "u1" }
+  ],
+  "groupMembers": [
+    { "id": "gm1", "groupId": "g1", "userId": "u1" },
+    { "id": "gm2", "groupId": "g1", "userId": "u2" }
+  ],
+  "externalEvents": [
+    { "id": "a1", "title": "Evening Concert", "startTime": "2025-11-16T18:00:00Z", "endTime": "2025-11-16T20:00:00Z", "location": "City Hall", "cost": 15, "currency": "EUR" },
+    { "id": "a2", "title": "Lunch Meetup", "startTime": "2025-11-16T12:00:00Z", "endTime": "2025-11-16T13:00:00Z", "location": "Cafe", "cost": 8, "currency": "EUR" },
+    { "id": "a3", "title": "Night Movie", "startTime": "2025-11-16T20:30:00Z", "endTime": "2025-11-16T22:30:00Z", "location": "Cinema", "cost": 12, "currency": "EUR" }
+  ]
+}

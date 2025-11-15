@@ -1,0 +1,64 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "Alice",
+      "group": "g1",
+      "calendar_busy": [
+        {
+          "start": "2025-11-16T09:00:00Z",
+          "end": "2025-11-16T10:00:00Z",
+          "summary": "Morning meeting"
+        }
+      ]
+    },
+    {
+      "id": "u2",
+      "name": "Bob",
+      "group": "g1",
+      "calendar_busy": [
+        {
+          "start": "2025-11-16T18:30:00Z",
+          "end": "2025-11-16T19:30:00Z",
+          "summary": "Doctor"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "name": "Friends",
+      "members": ["u1", "u2"]
+    }
+  ],
+  "activities": [
+    {
+      "id": "a1",
+      "name": "Evening Concert",
+      "start": "2025-11-16T18:00:00Z",
+      "end": "2025-11-16T20:00:00Z",
+      "location": "City Hall",
+      "price_eur": 15,
+      "distance_km": 2.0
+    },
+    {
+      "id": "a2",
+      "name": "Lunch Meetup",
+      "start": "2025-11-16T12:00:00Z",
+      "end": "2025-11-16T13:00:00Z",
+      "location": "Cafe",
+      "price_eur": 8,
+      "distance_km": 0.5
+    },
+    {
+      "id": "a3",
+      "name": "Night Movie",
+      "start": "2025-11-16T20:30:00Z",
+      "end": "2025-11-16T22:30:00Z",
+      "location": "Cinema",
+      "price_eur": 12,
+      "distance_km": 5.0
+    }
+  ]
+}

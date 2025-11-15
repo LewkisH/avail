@@ -1,0 +1,301 @@
+#!/usr/bin/env node
+const fs = require('fs');
+
+// ---------- Helper: date / intervals ----------
+function parseDt(s) {
+	return new Date(s);
+}
+
+function intervalsOverlap(start1, end1, start2, end2) {
+	return start1 < end2 && start2 < end1;
+}
+
+function userIsFreeForSlot(user, slotStart, slotEnd) {
+	const busyList = user.calendar_busy || [];
+	for (const busy of busyList) {
+		const bStart = parseDt(busy.start);
+		const bEnd = parseDt(busy.end);
+		if (intervalsOverlap(slotStart, slotEnd, bStart, bEnd)) return false;
+	}
+	return true;
+}
+
+// ---------- Scoring helpers (port of algoCalcRecs.ts) ----------
+function weekdayMon0(d) {
+	const dow = d.getDay();
+	return (dow + 6) % 7;
+}
+
+function getDayScore(dt) {
+	const wd = weekdayMon0(dt);
+	if (wd === 0 || wd === 1 || wd === 2) return 1;
+	if (wd === 3) return 5;
+	if (wd === 6) return 8;
+	return 10;
+}
+
+function getSdayFactor(dt) {
+	const wd = weekdayMon0(dt);
+	if (wd === 0 || wd === 1 || wd === 2) return 0.2;
+	if (wd === 3) return 0.4;
+	if (wd === 4 || wd === 5) return 1.0;
+	return 0.8;
+}
+
+function getTimeWindowScore(dt) {
+	const hour = dt.getHours();
+	const wd = weekdayMon0(dt);
+	function chooseScore(table) {
+		for (const row of table) {
+			const sh = row[0], eh = row[1], sc = row[2];
+			if (hour >= sh && hour < eh) return sc;
+		}
+		return 1;
+	}
+
+	if (wd === 0 || wd === 1 || wd === 2) {
+		const table = [
+			[0,8,1],[8,12,2],[12,16,3],[16,18,4],[18,20,8],[20,22,5],[22,24,2]
+		];
+		return chooseScore(table);
+	}
+	if (wd === 3) {
+		const table = [
+			[0,8,1],[8,12,2],[12,16,3],[16,18,5],[18,20,8],[20,22,6],[22,24,4]
+		];
+		return chooseScore(table);
+	}
+	if (wd === 4) {
+		const table = [
+			[0,8,1],[8,12,2],[12,16,3],[16,18,5],[18,20,8],[20,22,10],[22,24,8]
+		];
+		return chooseScore(table);
+	}
+	if (wd === 5) {
+		const table = [
+			[0,8,1],[8,12,2],[12,16,4],[16,18,6],[18,20,8],[20,22,10],[22,24,8]
+		];
+		return chooseScore(table);
+	}
+	if (wd === 6) {
+		const table = [
+			[0,8,1],[8,12,3],[12,16,7],[16,18,8],[18,20,7],[20,22,4],[22,24,1]
+		];
+		return chooseScore(table);
+	}
+	return 1;
+}
+
+function getDurationScore(hours) {
+	if (hours < 1) return 1;
+	if (hours > 4) return 10;
+	if (hours > 3) return 8;
+	if (hours > 2) return 5;
+	if (hours > 1) return 3;
+	return 1;
+}
+
+function computeSlotScore(slotStart, slotEnd, groupSize, availableSize) {
+	const dayScore = getDayScore(slotStart);
+	const z = getTimeWindowScore(slotStart);
+	const sDay = getSdayFactor(slotStart);
+
+	const S1 = dayScore * 0.35;
+	const S2 = z * sDay * 0.2;
+
+	let S3 = 0;
+	if (availableSize > 0) {
+		S3 = (groupSize / availableSize) * 10 * 0.25;
+	}
+
+	const durationHours = (slotEnd.getTime() - slotStart.getTime()) / (1000 * 3600);
+	const dScore = getDurationScore(durationHours);
+	const S4 = dScore * 0.2;
+
+	return S1 + S2 + S3 + S4;
+}
+
+function distanceBucket(distanceKm) {
+	if (distanceKm < 1.5) return 10;
+	if (distanceKm < 3.5) return 8;
+	if (distanceKm < 6.0) return 6;
+	if (distanceKm < 10.0) return 3;
+	return 1;
+}
+
+function costBucket(priceEur) {
+	if (priceEur >= 50) {
+		if (priceEur > 50) return 2;
+		return 6;
+	}
+	if (priceEur >= 25) return 8;
+	if (priceEur >= 10) return 10;
+	return 10;
+}
+
+function computeActivityScore(activity) {
+	const dist = (activity.distance_km === undefined || activity.distance_km === null) ? 5.0 : activity.distance_km;
+	const price = (activity.price_eur === undefined || activity.price_eur === null) ? 10.0 : activity.price_eur;
+	const prox = distanceBucket(dist);
+	const cost = costBucket(price);
+	const S_prox = prox * 0.6;
+	const S_cost = cost * 0.4;
+	return S_prox + S_cost;
+}
+
+function computeGroupRecommendations(data) {
+	const usersById = {};
+	for (const u of data.users || []) usersById[u.id] = u;
+
+	const results = {};
+
+	for (const group of data.groups || []) {
+		const gid = group.id;
+		const memberIds = group.members || [];
+		const members = memberIds.map((id) => usersById[id]).filter(Boolean);
+
+		const groupRecs = [];
+
+		for (const activity of data.activities || []) {
+			const aStart = parseDt(activity.start);
+			const aEnd = parseDt(activity.end);
+
+			const freeMembers = members.filter((m) => userIsFreeForSlot(m, aStart, aEnd));
+			if (freeMembers.length !== members.length) continue;
+
+			const slotScore = computeSlotScore(aStart, aEnd, members.length, freeMembers.length);
+			const activityScore = computeActivityScore(activity);
+			const totalScore = slotScore + activityScore;
+
+			groupRecs.push({
+				groupId: gid,
+				activityId: activity.id,
+				activityName: activity.name,
+				slotStart: activity.start,
+				slotEnd: activity.end,
+				slotScore: Number(slotScore.toFixed(3)),
+				activityScore: Number(activityScore.toFixed(3)),
+				totalScore: Number(totalScore.toFixed(3)),
+				location: activity.location,
+				price_eur: activity.price_eur,
+				distance_km: activity.distance_km,
+			});
+		}
+
+		groupRecs.sort((a,b) => b.totalScore - a.totalScore);
+		results[gid] = groupRecs;
+	}
+
+	return results;
+}
+
+// Export for programmatic use
+function computeTopNGroupRecommendations(data, n = 3) {
+	const all = computeGroupRecommendations(data);
+	const out = {};
+	for (const [gid, list] of Object.entries(all)) {
+		out[gid] = list.slice(0, n);
+	}
+	return out;
+}
+
+module.exports = { computeGroupRecommendations, computeTopNGroupRecommendations };
+
+// Adapter: convert a Prisma-like dump into the algorithm input shape
+function adaptPrismaDump(dump) {
+	// dump may contain: users, calendarEvents, groups, groupMembers, externalEvents, activitySuggestions
+	const users = (dump.users || []).map(u => ({ id: u.id, name: u.name, group: null }));
+
+	// Map calendar events to calendar_busy entries per user
+	const events = dump.calendarEvents || [];
+	const busyByUser = {};
+	for (const ev of events) {
+		const uid = ev.userId;
+		busyByUser[uid] = busyByUser[uid] || [];
+		busyByUser[uid].push({ start: ev.startTime, end: ev.endTime, summary: ev.title });
+	}
+
+	const usersWithBusy = users.map(u => ({ ...u, calendar_busy: busyByUser[u.id] || [] }));
+
+	// Map groups and members
+	const groups = (dump.groups || []).map(g => ({ id: g.id, name: g.name, members: [] }));
+	const groupById = {};
+	for (const g of groups) groupById[g.id] = g;
+
+	const members = dump.groupMembers || [];
+	for (const m of members) {
+		if (groupById[m.groupId]) groupById[m.groupId].members.push(m.userId);
+	}
+
+	// Map activities from ExternalEvent and ActivitySuggestion
+	const activities = [];
+	for (const e of (dump.externalEvents || [])) {
+		activities.push({
+			id: e.id,
+			name: e.title,
+			start: e.startTime,
+			end: e.endTime,
+			location: e.location || null,
+			price_eur: e.cost ? Number(e.cost) : null,
+			distance_km: e.distance_km || null,
+		});
+	}
+
+	for (const s of (dump.activitySuggestions || [])) {
+		// suggestedTime is a single DateTime; we create a 2-hour slot by default
+		const start = s.suggestedTime;
+		let end;
+		if (s.durationHours) end = new Date(new Date(start).getTime() + s.durationHours * 3600 * 1000).toISOString();
+		else end = new Date(new Date(start).getTime() + 2 * 3600 * 1000).toISOString();
+
+		activities.push({
+			id: s.id,
+			name: s.title,
+			start,
+			end,
+			location: null,
+			price_eur: s.cost ? Number(s.cost) : null,
+			distance_km: null,
+		});
+	}
+
+	return { users: usersWithBusy, groups, activities };
+}
+
+// CLI: read `input_data.json` (preferred) or `prisma_dump.json` (fallback) in cwd
+if (require.main === module) {
+	let raw;
+	let data;
+	if (fs.existsSync('input_data.json')) {
+		raw = fs.readFileSync('input_data.json', 'utf-8');
+		data = JSON.parse(raw);
+	} else if (fs.existsSync('prisma_dump.json')) {
+		raw = fs.readFileSync('prisma_dump.json', 'utf-8');
+		data = JSON.parse(raw);
+	} else {
+		console.error('No input_data.json or prisma_dump.json found in cwd.');
+		process.exit(1);
+	}
+
+	// If the file looks like a prisma dump (has calendarEvents or externalEvents), adapt it
+	if (data.calendarEvents || data.externalEvents || data.groupMembers || data.activitySuggestions) {
+		// normalize keys to expected names
+		const dump = {
+			users: data.users || [],
+			calendarEvents: data.calendarEvents || data.CalendarEvent || [],
+			groups: data.groups || [],
+			groupMembers: data.groupMembers || [],
+			externalEvents: data.externalEvents || data.ExternalEvent || [],
+			activitySuggestions: data.activitySuggestions || data.ActivitySuggestion || [],
+		};
+		data = adaptPrismaDump(dump);
+	}
+
+	const recs = computeGroupRecommendations(data);
+		for (const [gid, list] of Object.entries(recs)) {
+			console.log(`\n=== GROUP ${gid} ===`);
+			for (const r of list.slice(0,3)) {
+				console.log(`${r.activityId} | ${r.activityName} | ${r.slotStart}–${r.slotEnd} | total=${r.totalScore}`);
+			}
+		}
+}
