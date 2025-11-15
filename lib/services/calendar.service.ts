@@ -1,6 +1,7 @@
 import { EventSource } from '@prisma/client';
 import { prisma } from '../prisma';
 import { GoogleCalendarService } from './google-calendar.service';
+import { GroupAvailabilityService } from './group-availability.service';
 
 export class CalendarService {
   /**
@@ -75,12 +76,27 @@ export class CalendarService {
           where: { id: timeSlot.id },
           data: { sourceId: googleEventId },
         });
+
+        // Recalculate group availability for the affected date
+        const eventDate = new Date(updatedTimeSlot.startTime);
+        await GroupAvailabilityService.recalculateUserGroupsAvailability(
+          userId,
+          eventDate
+        );
+
         return updatedTimeSlot;
       }
     } catch (error) {
       // Log error but don't fail the operation
       console.error('Failed to sync to Google Calendar:', error);
     }
+
+    // Recalculate group availability for the affected date
+    const eventDate = new Date(timeSlot.startTime);
+    await GroupAvailabilityService.recalculateUserGroupsAvailability(
+      userId,
+      eventDate
+    );
 
     return timeSlot;
   }
@@ -120,6 +136,9 @@ export class CalendarService {
       throw new Error('Can only update manually created time slots');
     }
 
+    // Extract old date before updating
+    const oldDate = new Date(timeSlot.startTime);
+
     // Update in database
     const updated = await prisma.calendarEvent.update({
       where: { id: timeSlotId },
@@ -138,6 +157,27 @@ export class CalendarService {
       } catch (error) {
         console.error('Failed to sync update to Google Calendar:', error);
       }
+    }
+
+    // Recalculate group availability for affected dates
+    const affectedDates = new Set<string>();
+
+    // Add old date
+    affectedDates.add(oldDate.toISOString().split('T')[0]);
+
+    // Add new date if time was changed
+    if (data.startTime) {
+      const newDate = new Date(data.startTime);
+      affectedDates.add(newDate.toISOString().split('T')[0]);
+    }
+
+    // Recalculate for each affected date
+    for (const dateStr of affectedDates) {
+      const date = new Date(dateStr);
+      await GroupAvailabilityService.recalculateUserGroupsAvailability(
+        userId,
+        date
+      );
     }
 
     return updated;
@@ -168,6 +208,9 @@ export class CalendarService {
       throw new Error('Can only delete manually created time slots');
     }
 
+    // Extract date before deleting
+    const eventDate = new Date(timeSlot.startTime);
+
     // Delete from Google Calendar if it's a manual event with sourceId (already synced)
     if (timeSlot.source === EventSource.manual && timeSlot.sourceId) {
       try {
@@ -181,8 +224,16 @@ export class CalendarService {
     }
 
     // Delete from database
-    return await prisma.calendarEvent.delete({
+    const deleted = await prisma.calendarEvent.delete({
       where: { id: timeSlotId },
     });
+
+    // Recalculate group availability for the affected date
+    await GroupAvailabilityService.recalculateUserGroupsAvailability(
+      userId,
+      eventDate
+    );
+
+    return deleted;
   }
 }

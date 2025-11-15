@@ -20,13 +20,14 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  interests        UserInterest[]
-  budget           UserBudget?
-  ownedGroups      Group[]              @relation("GroupOwner")
-  groupMemberships GroupMember[]
-  sentInvitations  GroupInvitation[]    @relation("InvitationSender")
-  calendarEvents   CalendarEvent[]
-  googleToken      GoogleCalendarToken?
+  interests                  UserInterest[]
+  budget                     UserBudget?
+  ownedGroups                Group[]                        @relation("GroupOwner")
+  groupMemberships           GroupMember[]
+  sentInvitations            GroupInvitation[]              @relation("InvitationSender")
+  calendarEvents             CalendarEvent[]
+  googleToken                GoogleCalendarToken?
+  availabilityParticipations GroupAvailabilityParticipant[]
 }
 
 model UserInterest {
@@ -62,6 +63,7 @@ model Group {
   members             GroupMember[]
   invitations         GroupInvitation[]
   activitySuggestions ActivitySuggestion[]
+  availabilities      GroupAvailability[]
 
   @@index([ownerId])
 }
@@ -183,4 +185,35 @@ model ActivitySuggestion {
 
   @@index([groupId])
   @@index([suggestedTime])
+}
+
+// Group Availability Models
+
+model GroupAvailability {
+  id        String   @id @default(uuid())
+  groupId   String
+  date      DateTime @db.Date
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group        Group                          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  participants GroupAvailabilityParticipant[]
+
+  @@index([groupId, date])
+  @@index([date])
+}
+
+model GroupAvailabilityParticipant {
+  id                  String @id @default(uuid())
+  groupAvailabilityId String
+  userId              String
+
+  groupAvailability GroupAvailability @relation(fields: [groupAvailabilityId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupAvailabilityId, userId])
+  @@index([groupAvailabilityId])
+  @@index([userId])
 }
