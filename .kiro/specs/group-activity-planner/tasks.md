@@ -93,15 +93,15 @@
     - Implement getUserGroups(userId)
     - _Requirements: 2_
 
-- [ ] 5. Build user profile management API and UI
-  - [ ] 5.1 Create user profile API routes
+- [x] 5. Build user profile management API and UI
+  - [x] 5.1 Create user profile API routes
     - Create GET /api/user/profile to fetch current user data
     - Create PUT /api/user/interests to update interests
     - Create PUT /api/user/budget to update budget range
     - Add input validation using Zod schemas
     - _Requirements: 3_
   
-  - [ ] 5.2 Build user profile UI
+  - [x] 5.2 Build user profile UI
     - Create profile page with shadcn/ui components
     - Build interests management form with multi-select
     - Build budget range input with currency selector (default EUR)
