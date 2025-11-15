@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { CalendarEvent } from '@prisma/client';
 
 interface TimeRange {
   startTime: Date;
@@ -63,7 +64,7 @@ export class GroupAvailabilityService {
       },
     });
 
-    console.log(`Found ${events.length} events:`, events.map(e => ({
+    console.log(`Found ${events.length} events:`, events.map((e: CalendarEvent) => ({
       start: e.startTime.toISOString(),
       end: e.endTime.toISOString(),
       userId: e.userId
@@ -415,8 +416,10 @@ export class GroupAvailabilityService {
       });
 
       // Filter to only windows where the requesting user is a participant
-      const userWindows = availabilityWindows.filter((window) =>
-        window.participants.some((p) => p.userId === userId)
+      type AvailabilityWithParticipants = typeof availabilityWindows[number];
+      type Participant = AvailabilityWithParticipants['participants'][number];
+      const userWindows = availabilityWindows.filter((window: AvailabilityWithParticipants) =>
+        window.participants.some((p: Participant) => p.userId === userId)
       );
 
       console.log(`Found ${userWindows.length} availability windows for user ${userId} in group ${groupId} on ${normalizedDate.toISOString()}`);
