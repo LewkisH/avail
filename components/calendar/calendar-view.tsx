@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Plus, Calendar, ChevronLeft, ChevronRight, Clock, Edit, Trash2 } from "lucide-react";
 import { TimeSlotDialog } from "./time-slot-dialog";
 import { DeleteTimeSlotDialog } from "./delete-time-slot-dialog";
+import { GoogleCalendarStatus } from "./google-calendar-status";
+import { GoogleCalendarConnect } from "./google-calendar-connect";
 import { formatTimeDisplay, formatDateDisplay, getUserTimezone } from "@/lib/utils/timezone";
 
 interface TimeSlot {
@@ -15,6 +17,13 @@ interface TimeSlot {
   startTime: string;
   endTime: string;
   description?: string;
+}
+
+interface ConnectionStatus {
+  connected: boolean;
+  connectedAt?: Date;
+  lastSyncAt?: Date;
+  error?: string;
 }
 
 type ViewMode = "day" | "week";
@@ -28,9 +37,34 @@ export function CalendarView() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    connected: false,
+  });
+  const [statusLoading, setStatusLoading] = useState(true);
 
   useEffect(() => {
     fetchTimeSlots();
+    fetchConnectionStatus();
+
+    // Check for OAuth callback messages
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+
+    if (success === 'connected') {
+      toast.success('Google Calendar connected successfully!');
+      // Clean up URL
+      window.history.replaceState({}, '', '/calendar');
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        access_denied: 'You denied access to Google Calendar',
+        invalid_callback: 'Invalid OAuth callback parameters',
+        connection_failed: 'Failed to connect to Google Calendar. Please try again.',
+      };
+      toast.error(errorMessages[error] || 'An error occurred during connection');
+      // Clean up URL
+      window.history.replaceState({}, '', '/calendar');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
@@ -53,6 +87,81 @@ export function CalendarView() {
       toast.error("Failed to load time slots");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchConnectionStatus = async () => {
+    try {
+      setStatusLoading(true);
+      const response = await fetch('/api/calendar/google/status');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch connection status');
+      }
+
+      const data = await response.json();
+      setConnectionStatus({
+        connected: data.connected,
+        connectedAt: data.connectedAt ? new Date(data.connectedAt) : undefined,
+        lastSyncAt: data.lastSyncAt ? new Date(data.lastSyncAt) : undefined,
+        error: data.error,
+      });
+    } catch (error) {
+      console.error('Error fetching connection status:', error);
+      // Don't show error toast for status fetch - just log it
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      const response = await fetch('/api/calendar/google/sync', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to sync calendar');
+      }
+
+      const data = await response.json();
+
+      // Show sync results
+      const messages = [];
+      if (data.created > 0) messages.push(`${data.created} created`);
+      if (data.updated > 0) messages.push(`${data.updated} updated`);
+      if (data.deleted > 0) messages.push(`${data.deleted} deleted`);
+
+      const message = messages.length > 0
+        ? `Sync complete: ${messages.join(', ')}`
+        : 'Sync complete: No changes';
+
+      toast.success(message);
+
+      // Refresh calendar view and connection status
+      await fetchTimeSlots();
+      await fetchConnectionStatus();
+    } catch (error) {
+      throw error; // Re-throw to be handled by GoogleCalendarStatus component
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      const response = await fetch('/api/calendar/google/disconnect', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to disconnect');
+      }
+
+      // Update connection status
+      setConnectionStatus({ connected: false });
+    } catch (error) {
+      throw error; // Re-throw to be handled by GoogleCalendarStatus component
     }
   };
 
@@ -316,6 +425,19 @@ export function CalendarView() {
           Add Time Slot
         </Button>
       </div>
+
+      {/* Google Calendar Integration */}
+      {!statusLoading && (
+        connectionStatus.connected ? (
+          <GoogleCalendarStatus
+            status={connectionStatus}
+            onSync={handleSync}
+            onDisconnect={handleDisconnect}
+          />
+        ) : (
+          <GoogleCalendarConnect />
+        )
+      )}
 
       <Card>
         <CardHeader>

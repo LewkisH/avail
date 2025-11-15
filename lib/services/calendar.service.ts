@@ -1,10 +1,11 @@
 import { EventSource } from '@prisma/client';
 import { prisma } from '../prisma';
+import { GoogleCalendarService } from './google-calendar.service';
 
 export class CalendarService {
   /**
    * Get all time slots for a user within a date range
-   * Only returns manually created time slots (source: manual)
+   * Returns both manually created time slots and Google Calendar events
    * @param userId - User ID
    * @param startDate - Start of date range
    * @param endDate - End of date range
@@ -18,7 +19,6 @@ export class CalendarService {
     return await prisma.calendarEvent.findMany({
       where: {
         userId,
-        source: EventSource.manual,
         startTime: {
           gte: startDate,
         },
@@ -48,7 +48,8 @@ export class CalendarService {
       timezone: string;
     }
   ) {
-    return await prisma.calendarEvent.create({
+    // Create in database
+    const timeSlot = await prisma.calendarEvent.create({
       data: {
         userId,
         title: data.title,
@@ -60,6 +61,28 @@ export class CalendarService {
         sourceId: null,
       },
     });
+
+    // Sync to Google Calendar if connected
+    try {
+      const status = await GoogleCalendarService.getConnectionStatus(userId);
+      if (status.connected) {
+        const googleEventId = await GoogleCalendarService.createEventInGoogle(
+          userId,
+          timeSlot
+        );
+        // Update with Google event ID
+        const updatedTimeSlot = await prisma.calendarEvent.update({
+          where: { id: timeSlot.id },
+          data: { sourceId: googleEventId },
+        });
+        return updatedTimeSlot;
+      }
+    } catch (error) {
+      // Log error but don't fail the operation
+      console.error('Failed to sync to Google Calendar:', error);
+    }
+
+    return timeSlot;
   }
 
   /**
@@ -97,7 +120,8 @@ export class CalendarService {
       throw new Error('Can only update manually created time slots');
     }
 
-    return await prisma.calendarEvent.update({
+    // Update in database
+    const updated = await prisma.calendarEvent.update({
       where: { id: timeSlotId },
       data: {
         title: data.title,
@@ -106,6 +130,17 @@ export class CalendarService {
         description: data.description,
       },
     });
+
+    // Sync to Google Calendar if it's a manual event with sourceId (already synced)
+    if (timeSlot.source === EventSource.manual && timeSlot.sourceId) {
+      try {
+        await GoogleCalendarService.updateEventInGoogle(userId, updated);
+      } catch (error) {
+        console.error('Failed to sync update to Google Calendar:', error);
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -133,6 +168,19 @@ export class CalendarService {
       throw new Error('Can only delete manually created time slots');
     }
 
+    // Delete from Google Calendar if it's a manual event with sourceId (already synced)
+    if (timeSlot.source === EventSource.manual && timeSlot.sourceId) {
+      try {
+        await GoogleCalendarService.deleteEventInGoogle(
+          userId,
+          timeSlot.sourceId
+        );
+      } catch (error) {
+        console.error('Failed to delete from Google Calendar:', error);
+      }
+    }
+
+    // Delete from database
     return await prisma.calendarEvent.delete({
       where: { id: timeSlotId },
     });
