@@ -109,8 +109,8 @@
     - Display success/error toast notifications
     - _Requirements: 3_
 
-- [ ] 6. Implement group management features
-  - [ ] 6.1 Create group management API routes
+- [x] 6. Implement group management features
+  - [x] 6.1 Create group management API routes
     - Create POST /api/groups to create new group
     - Create GET /api/groups to list user's groups
     - Create POST /api/groups/[id]/invite to send invitation
@@ -119,7 +119,7 @@
     - Create GET /api/groups/[id]/members to get members
     - _Requirements: 2_
   
-  - [ ] 6.2 Build group management UI
+  - [x] 6.2 Build group management UI
     - Create groups list page with shadcn/ui Card components
     - Build create group dialog with Form components
     - Create invite members dialog with email input
