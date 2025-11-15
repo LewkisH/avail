@@ -74,7 +74,7 @@
     - Implement protected route layouts
     - _Requirements: 1_
 
-- [-] 4. Create database service layer
+- [x] 4. Create database service layer
   - [x] 4.1 Implement UserService
     - Create lib/services/user.service.ts
     - Implement createUser(clerkId, email, name)
@@ -83,7 +83,7 @@
     - Implement updateUserBudget(userId, minBudget, maxBudget, currency)
     - _Requirements: 1, 3_
   
-  - [-] 4.2 Implement GroupService
+  - [x] 4.2 Implement GroupService
     - Create lib/services/group.service.ts
     - Implement createGroup(ownerId, name)
     - Implement inviteToGroup(groupId, email, invitedBy)
