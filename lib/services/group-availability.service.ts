@@ -36,14 +36,20 @@ export class GroupAvailabilityService {
     date: Date,
     txOrPrisma: typeof prisma | any = prisma
   ): Promise<Map<string, TimeRange[]>> {
+    console.log('=== findFreeTimeWindows ===');
+    console.log('Input date:', date.toISOString());
+    console.log('Input date local:', date.toString());
+
     // Set up date boundaries (start and end of the day)
-    // The date comes in as a local date (e.g., "2025-11-15" means Nov 15 in user's timezone)
-    // We need to create Date objects that represent midnight in the user's local timezone
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
+    // The date parameter already represents the start of the day in the user's timezone (in UTC)
+    // For example, if user is in UTC+2 and selects Nov 15:
+    // - date will be 2025-11-14T22:00:00.000Z (which is Nov 15 00:00 in UTC+2)
+    // We need to add 24 hours to get the end of that day
+    const dayStart = new Date(date.getTime());
+    const dayEnd = new Date(date.getTime() + (24 * 60 * 60 * 1000) - 1); // Add 24 hours minus 1ms
+
+    console.log('Day start:', dayStart.toISOString(), '/', dayStart.toString());
+    console.log('Day end:', dayEnd.toISOString(), '/', dayEnd.toString());
 
     // Fetch all calendar events for all users on this date
     const events = await txOrPrisma.calendarEvent.findMany({
@@ -56,6 +62,12 @@ export class GroupAvailabilityService {
         startTime: 'asc',
       },
     });
+
+    console.log(`Found ${events.length} events:`, events.map(e => ({
+      start: e.startTime.toISOString(),
+      end: e.endTime.toISOString(),
+      userId: e.userId
+    })));
 
     // Group events by user
     const eventsByUser = new Map<string, TimeRange[]>();
@@ -86,21 +98,44 @@ export class GroupAvailabilityService {
           endTime: dayEnd,
         });
       } else {
-        // Sort events by start time (should already be sorted from query)
+        // Sort events by start time
         userEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
+        // Merge overlapping events
+        const mergedEvents: TimeRange[] = [];
+        let currentEvent = { ...userEvents[0] };
+
+        for (let i = 1; i < userEvents.length; i++) {
+          const nextEvent = userEvents[i];
+
+          // If events overlap or are adjacent, merge them
+          if (nextEvent.startTime <= currentEvent.endTime) {
+            // Extend current event to cover both
+            currentEvent.endTime = new Date(
+              Math.max(currentEvent.endTime.getTime(), nextEvent.endTime.getTime())
+            );
+          } else {
+            // No overlap, save current and start new
+            mergedEvents.push(currentEvent);
+            currentEvent = { ...nextEvent };
+          }
+        }
+        // Don't forget the last event
+        mergedEvents.push(currentEvent);
+
+        // Now calculate free time using merged events
         // Check for free time before first event
-        if (userEvents[0].startTime > dayStart) {
+        if (mergedEvents[0].startTime > dayStart) {
           freeWindows.push({
             startTime: dayStart,
-            endTime: userEvents[0].startTime,
+            endTime: mergedEvents[0].startTime,
           });
         }
 
         // Check for free time between events
-        for (let i = 0; i < userEvents.length - 1; i++) {
-          const currentEnd = userEvents[i].endTime;
-          const nextStart = userEvents[i + 1].startTime;
+        for (let i = 0; i < mergedEvents.length - 1; i++) {
+          const currentEnd = mergedEvents[i].endTime;
+          const nextStart = mergedEvents[i + 1].startTime;
 
           if (currentEnd < nextStart) {
             freeWindows.push({
@@ -111,7 +146,7 @@ export class GroupAvailabilityService {
         }
 
         // Check for free time after last event
-        const lastEvent = userEvents[userEvents.length - 1];
+        const lastEvent = mergedEvents[mergedEvents.length - 1];
         if (lastEvent.endTime < dayEnd) {
           freeWindows.push({
             startTime: lastEvent.endTime,

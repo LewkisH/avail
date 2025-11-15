@@ -44,7 +44,15 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
         // Normalize date to avoid timezone issues
         const normalizedDate = new Date(date);
         normalizedDate.setHours(0, 0, 0, 0);
-        const dateStr = normalizedDate.toISOString().split('T')[0];
+
+        // Format date as YYYY-MM-DD in local timezone (not UTC)
+        const year = normalizedDate.getFullYear();
+        const month = String(normalizedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(normalizedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        // Get timezone offset in minutes (e.g., -120 for UTC+2)
+        const timezoneOffset = normalizedDate.getTimezoneOffset();
 
         // Check if we need to trigger calculation for this date
         const needsCalculation = !calculatedDatesRef.current.has(dateStr);
@@ -60,7 +68,10 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
                 await fetch(`/api/groups/${groupId}/availability`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ date: dateStr }),
+                  body: JSON.stringify({
+                    date: dateStr,
+                    timezoneOffset
+                  }),
                 });
               } catch (err) {
                 console.error(`Failed to calculate availability for group ${groupId}:`, err);
@@ -73,7 +84,7 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
         const responses = await Promise.all(
           groupIds.map(async (groupId) => {
             const response = await fetch(
-              `/api/groups/${groupId}/availability?date=${dateStr}`
+              `/api/groups/${groupId}/availability?date=${dateStr}&timezoneOffset=${timezoneOffset}`
             );
 
             if (!response.ok) {
@@ -122,7 +133,7 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
     };
 
     fetchAvailability();
-  }, [groupIds, date.toISOString().split('T')[0]]); // Use date string to avoid timezone issues
+  }, [groupIds, date.getFullYear(), date.getMonth(), date.getDate()]); // Use date components to avoid timezone issues
 
   return { availabilityWindows, loading, error };
 }

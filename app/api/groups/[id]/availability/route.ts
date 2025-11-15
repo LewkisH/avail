@@ -35,6 +35,7 @@ export async function GET(
   // Parse and validate date query parameter
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date");
+  const timezoneOffsetParam = searchParams.get("timezoneOffset");
 
   if (!dateParam) {
     return NextResponse.json(
@@ -49,7 +50,6 @@ export async function GET(
   }
 
   // Validate and parse date format
-  // Parse as local date (YYYY-MM-DD should be interpreted as local midnight, not UTC)
   const dateParts = dateParam.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!dateParts) {
     return NextResponse.json(
@@ -63,11 +63,30 @@ export async function GET(
     );
   }
   
-  const date = new Date(
+  // Parse timezone offset (in minutes, negative for ahead of UTC)
+  const timezoneOffset = timezoneOffsetParam ? parseInt(timezoneOffsetParam) : 0;
+
+  console.log('=== GET Availability Date Parsing ===');
+  console.log('Date param:', dateParam);
+  console.log('Timezone offset param:', timezoneOffsetParam);
+  console.log('Parsed timezone offset:', timezoneOffset);
+
+  // Create date in UTC, then adjust for user's timezone
+  // If user is in UTC+2, offset is -120 minutes
+  const date = new Date(Date.UTC(
     parseInt(dateParts[1]), // year
     parseInt(dateParts[2]) - 1, // month (0-indexed)
-    parseInt(dateParts[3]) // day
-  );
+    parseInt(dateParts[3]), // day
+    0, 0, 0, 0
+  ));
+
+  console.log('Date before offset adjustment (UTC):', date.toISOString());
+
+  // Adjust for timezone offset to get the actual local midnight
+  date.setMinutes(date.getMinutes() - timezoneOffset);
+
+  console.log('Date after offset adjustment:', date.toISOString());
+  console.log('Date local string:', date.toString());
   
   if (isNaN(date.getTime())) {
     return NextResponse.json(
@@ -163,7 +182,7 @@ export async function POST(
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { date: dateParam } = body;
+    const { date: dateParam, timezoneOffset: timezoneOffsetParam } = body;
 
     if (!dateParam) {
       return NextResponse.json(
@@ -178,7 +197,6 @@ export async function POST(
     }
 
     // Validate and parse date format
-    // Parse as local date (YYYY-MM-DD should be interpreted as local midnight, not UTC)
     const dateParts = dateParam.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!dateParts) {
       return NextResponse.json(
@@ -192,11 +210,29 @@ export async function POST(
       );
     }
     
-    const date = new Date(
+    // Parse timezone offset (in minutes, negative for ahead of UTC)
+    const timezoneOffset = timezoneOffsetParam !== undefined ? parseInt(timezoneOffsetParam) : 0;
+
+    console.log('=== POST Calculate Availability Date Parsing ===');
+    console.log('Date param:', dateParam);
+    console.log('Timezone offset param:', timezoneOffsetParam);
+    console.log('Parsed timezone offset:', timezoneOffset);
+
+    // Create date in UTC, then adjust for user's timezone
+    const date = new Date(Date.UTC(
       parseInt(dateParts[1]), // year
       parseInt(dateParts[2]) - 1, // month (0-indexed)
-      parseInt(dateParts[3]) // day
-    );
+      parseInt(dateParts[3]), // day
+      0, 0, 0, 0
+    ));
+
+    console.log('Date before offset adjustment (UTC):', date.toISOString());
+
+    // Adjust for timezone offset to get the actual local midnight
+    date.setMinutes(date.getMinutes() - timezoneOffset);
+
+    console.log('Date after offset adjustment:', date.toISOString());
+    console.log('Date local string:', date.toString());
     
     if (isNaN(date.getTime())) {
       return NextResponse.json(
@@ -209,6 +245,8 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    console.log('Calling calculateGroupAvailability with date:', date.toISOString());
 
     // Trigger recalculation
     await GroupAvailabilityService.calculateGroupAvailability({
