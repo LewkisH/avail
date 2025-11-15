@@ -21,6 +21,7 @@ export async function getCurrentUser() {
       include: {
         interests: true,
         budget: true,
+        sleepTime: true,
       },
     });
 
@@ -54,6 +55,7 @@ export async function requireAuth() {
       include: {
         interests: true,
         budget: true,
+        sleepTime: true,
       },
     });
 

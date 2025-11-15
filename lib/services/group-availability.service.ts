@@ -70,12 +70,31 @@ export class GroupAvailabilityService {
       userId: e.userId
     })));
 
+    // Fetch user sleep times
+    const userSleepTimes = await txOrPrisma.userSleepTime.findMany({
+      where: {
+        userId: { in: userIds },
+      },
+    });
+
+    // Create a map of sleep times by user
+    const sleepTimeByUser = new Map<string, { startTime: string; endTime: string }>();
+    for (const sleepTime of userSleepTimes) {
+      sleepTimeByUser.set(sleepTime.userId, {
+        startTime: sleepTime.startTime,
+        endTime: sleepTime.endTime,
+      });
+    }
+
+    console.log(`Found ${userSleepTimes.length} user sleep times`);
+
     // Group events by user
     const eventsByUser = new Map<string, TimeRange[]>();
     for (const userId of userIds) {
       eventsByUser.set(userId, []);
     }
 
+    // Add calendar events to each user's event list
     for (const event of events) {
       const userEvents = eventsByUser.get(event.userId) || [];
       userEvents.push({
@@ -83,6 +102,49 @@ export class GroupAvailabilityService {
         endTime: event.endTime,
       });
       eventsByUser.set(event.userId, userEvents);
+    }
+
+    // Add sleep time as busy time for each user
+    for (const userId of userIds) {
+      const sleepTime = sleepTimeByUser.get(userId);
+      if (!sleepTime) continue;
+
+      const userEvents = eventsByUser.get(userId) || [];
+      
+      // Parse sleep times (format: "HH:MM")
+      const [startHour, startMinute] = sleepTime.startTime.split(':').map(Number);
+      const [endHour, endMinute] = sleepTime.endTime.split(':').map(Number);
+
+      // Create Date objects for sleep start and end on the given day
+      const sleepStart = new Date(dayStart);
+      sleepStart.setHours(startHour, startMinute, 0, 0);
+
+      const sleepEnd = new Date(dayStart);
+      sleepEnd.setHours(endHour, endMinute, 0, 0);
+
+      // Handle sleep time that crosses midnight (e.g., 22:00 - 08:00)
+      if (sleepEnd <= sleepStart) {
+        // Sleep crosses midnight, split into two periods:
+        // 1. From sleep start to end of day
+        userEvents.push({
+          startTime: sleepStart,
+          endTime: dayEnd,
+        });
+        
+        // 2. From start of day to sleep end
+        userEvents.push({
+          startTime: dayStart,
+          endTime: sleepEnd,
+        });
+      } else {
+        // Sleep is within the same day
+        userEvents.push({
+          startTime: sleepStart,
+          endTime: sleepEnd,
+        });
+      }
+
+      eventsByUser.set(userId, userEvents);
     }
 
     // Calculate free time for each user

@@ -218,6 +218,33 @@ export function CalendarView() {
     return formatTimeDisplay(dateString);
   };
 
+  const formatTimeWithDate = (dateString: string, referenceDate?: Date) => {
+    const date = new Date(dateString);
+    const time = formatTimeDisplay(dateString);
+
+    // If no reference date provided, just return the time
+    if (!referenceDate) {
+      return time;
+    }
+
+    // Check if the date differs from the reference date
+    const timezone = getUserTimezone();
+    const dateStr = date.toLocaleDateString('en-US', { timeZone: timezone });
+    const refDateStr = referenceDate.toLocaleDateString('en-US', { timeZone: timezone });
+
+    if (dateStr !== refDateStr) {
+      // Format as "HH:MM AM/PM (MMM DD)"
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: timezone,
+      });
+      return `${time} (${formattedDate})`;
+    }
+
+    return time;
+  };
+
   const getWeekRangeDisplay = () => {
     const { start, end } = getDateRange();
     const startMonth = start.toLocaleDateString("en-US", { month: "short" });
@@ -308,7 +335,7 @@ export function CalendarView() {
                       <div className="flex items-center gap-2 mt-2 text-sm sm:text-base text-muted-foreground">
                         <Clock className="h-4 w-4 shrink-0" />
                         <span className="break-words">
-                          {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                          {formatTime(slot.startTime)} - {formatTimeWithDate(slot.endTime, new Date(slot.startTime))}
                         </span>
                       </div>
                       {slot.description && (
@@ -382,14 +409,41 @@ export function CalendarView() {
                 {daySlots.map((slot) => (
                   <Card
                     key={slot.id}
-                    className="hover:shadow-md transition-shadow cursor-pointer active:scale-[0.98] transition-transform min-h-[44px] flex items-center"
-                    onClick={() => handleEdit(slot)}
+                    className="hover:shadow-md transition-shadow"
                   >
                     <CardContent className="p-2 sm:p-3 w-full">
-                      <p className="text-xs sm:text-sm font-semibold truncate break-words">{slot.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatTime(slot.startTime)}
-                      </p>
+                      <div className="space-y-2">
+                        <p className="text-xs sm:text-sm font-semibold truncate break-words">{slot.title}</p>
+                        <p className="text-xs text-muted-foreground break-words">
+                          {formatTime(slot.startTime)} - {formatTimeWithDate(slot.endTime, new Date(slot.startTime))}
+                        </p>
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(slot);
+                            }}
+                            className="h-11 w-11 hover:bg-accent"
+                            aria-label="Edit time slot"
+                          >
+                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(slot);
+                            }}
+                            className="h-11 w-11 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            aria-label="Delete time slot"
+                          >
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

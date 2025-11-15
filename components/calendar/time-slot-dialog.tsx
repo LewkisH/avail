@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { getUserTimezone } from '@/lib/utils/timezone';
+import { DurationSlider } from '@/components/calendar/duration-slider';
 
 interface TimeSlot {
   id: string;
@@ -219,8 +220,8 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-sm:max-h-[90vh] max-sm:overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-2">
           <DialogTitle className="text-lg sm:text-xl">{isEditMode ? 'Edit Time Slot' : 'Add Time Slot'}</DialogTitle>
           <DialogDescription className="text-sm">
             {isEditMode
@@ -229,145 +230,214 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., Available for lunch"
-                      {...field}
-                      disabled={form.formState.isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      disabled={form.formState.isSubmitting}
-                      className="min-h-[44px]"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="startTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="time"
-                      {...field}
-                      disabled={form.formState.isSubmitting}
-                      className="min-h-[44px]"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="duration"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Duration</FormLabel>
-
-                  {/* Duration preset buttons */}
-                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                    {DURATION_PRESETS.map((preset) => (
-                      <Button
-                        key={preset.minutes}
-                        type="button"
-                        variant={selectedPreset === preset.minutes ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handlePresetSelect(preset.minutes)}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Header Section: Title and Description */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Title</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Available for lunch"
+                        {...field}
                         disabled={form.formState.isSubmitting}
-                        className="min-h-[44px] min-w-[44px] flex-shrink-0 px-4"
-                      >
-                        {preset.label}
-                      </Button>
-                    ))}
-                  </div>
+                        className="min-h-[44px] text-base"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={15}
-                      max={2880}
-                      step={15}
-                      {...field}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value, 10);
-                        field.onChange(value);
-                        // Clear preset selection when manually adjusting duration
-                        setSelectedPreset(null);
-                      }}
-                      disabled={form.formState.isSubmitting}
-                      className="min-h-[44px]"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {formatDuration(field.value)}
-                  </p>
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Description (Optional)</FormLabel>
+                    <FormControl>
+                      <textarea
+                        placeholder="Add any additional details..."
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        {...field}
+                        disabled={form.formState.isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <FormControl>
-                    <textarea
-                      placeholder="Add any additional details..."
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      {...field}
-                      disabled={form.formState.isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Date & Time Section */}
+            <div className="space-y-4 pt-2 border-t">
+              <h3 className="text-sm font-semibold text-foreground">Date & Time</h3>
 
-            <DialogFooter>
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        disabled={form.formState.isSubmitting}
+                        className="min-h-[44px] text-base"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Start Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        disabled={form.formState.isSubmitting}
+                        className="min-h-[44px] text-base"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Duration Section */}
+            <div className="space-y-4 pt-2 border-t">
+              <h3 className="text-sm font-semibold text-foreground">Duration</h3>
+
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Quick Select</FormLabel>
+
+                    {/* Duration preset buttons */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+                      {DURATION_PRESETS.map((preset) => (
+                        <Button
+                          key={preset.minutes}
+                          type="button"
+                          variant={selectedPreset === preset.minutes ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => handlePresetSelect(preset.minutes)}
+                          disabled={form.formState.isSubmitting}
+                          className="min-h-[44px] min-w-[44px] flex-shrink-0 px-4 text-sm"
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {/* Duration slider */}
+                    <div className="pt-4 space-y-2">
+                      <FormLabel className="text-sm font-medium">Adjust Duration</FormLabel>
+                      <DurationSlider
+                        value={field.value}
+                        onChange={(value) => {
+                          field.onChange(value);
+                          // Clear preset selection when manually adjusting duration via slider
+                          setSelectedPreset(null);
+                        }}
+                        min={15}
+                        max={2880}
+                        step={15}
+                        disabled={form.formState.isSubmitting}
+                      />
+                    </div>
+
+                    {/* End time display */}
+                    {form.watch('date') && form.watch('startTime') && (
+                      <div className="mt-4 p-3 bg-muted rounded-md">
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">End time:</span>{' '}
+                          {(() => {
+                            const { endTime, endDate } = calculateEndTime(
+                              form.watch('date'),
+                              form.watch('startTime'),
+                              field.value
+                            );
+                            const startDate = form.watch('date');
+
+                            // Format time in 12-hour format
+                            const [hours, minutes] = endTime.split(':').map(Number);
+                            const period = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours % 12 || 12;
+                            const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+
+                            // Show date if it differs from start date (multi-day slot)
+                            if (endDate !== startDate) {
+                              const endDateObj = new Date(endDate);
+                              const formattedDate = endDateObj.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              });
+                              return `${formattedTime} (${formattedDate})`;
+                            }
+
+                            return formattedTime;
+                          })()}
+                        </p>
+                        {(() => {
+                          const { endDate } = calculateEndTime(
+                            form.watch('date'),
+                            form.watch('startTime'),
+                            field.value
+                          );
+                          const startDate = form.watch('date');
+
+                          // Show multi-day indicator if slot spans multiple days
+                          if (endDate !== startDate) {
+                            const startDateObj = new Date(startDate);
+                            const endDateObj = new Date(endDate);
+                            const daysDiff = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+
+                            return (
+                              <p className="text-xs text-muted-foreground mt-2 italic">
+                                This time slot spans {daysDiff} {daysDiff === 1 ? 'day' : 'days'}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Actions Section */}
+            <DialogFooter className="gap-2 pt-4 border-t sm:gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
                 disabled={form.formState.isSubmitting}
-                className="min-h-[44px]"
+                className="min-h-[44px] flex-1 sm:flex-none sm:min-w-[100px]"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={form.formState.isSubmitting}
-                className="min-h-[44px]"
+                className="min-h-[44px] flex-1 sm:flex-none sm:min-w-[100px]"
               >
                 {form.formState.isSubmitting
                   ? isEditMode

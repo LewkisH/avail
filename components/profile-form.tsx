@@ -26,8 +26,14 @@ const budgetSchema = z.object({
   message: 'Maximum budget must be greater than or equal to minimum budget',
 });
 
+const sleepTimeSchema = z.object({
+  startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Start time must be in HH:MM format'),
+  endTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'End time must be in HH:MM format'),
+});
+
 type InterestsFormData = z.infer<typeof interestsSchema>;
 type BudgetFormData = z.infer<typeof budgetSchema>;
+type SleepTimeFormData = z.infer<typeof sleepTimeSchema>;
 
 interface UserProfile {
   id: string;
@@ -39,6 +45,10 @@ interface UserProfile {
     max: number;
     currency: string;
   } | null;
+  sleepTime: {
+    startTime: string;
+    endTime: string;
+  } | null;
 }
 
 export function ProfileForm() {
@@ -48,6 +58,7 @@ export function ProfileForm() {
   const [interests, setInterests] = useState<string[]>([]);
   const [savingInterests, setSavingInterests] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  const [savingSleepTime, setSavingSleepTime] = useState(false);
 
   const budgetForm = useForm<BudgetFormData>({
     resolver: zodResolver(budgetSchema),
@@ -55,6 +66,14 @@ export function ProfileForm() {
       minBudget: 0,
       maxBudget: 100,
       currency: 'EUR',
+    },
+  });
+
+  const sleepTimeForm = useForm<SleepTimeFormData>({
+    resolver: zodResolver(sleepTimeSchema),
+    defaultValues: {
+      startTime: '22:00',
+      endTime: '08:00',
     },
   });
 
@@ -78,6 +97,13 @@ export function ProfileForm() {
           minBudget: data.budget.min,
           maxBudget: data.budget.max,
           currency: data.budget.currency,
+        });
+      }
+
+      if (data.sleepTime) {
+        sleepTimeForm.reset({
+          startTime: data.sleepTime.startTime,
+          endTime: data.sleepTime.endTime,
         });
       }
     } catch (error) {
@@ -147,6 +173,31 @@ export function ProfileForm() {
       toast.error(error instanceof Error ? error.message : 'Failed to update budget');
     } finally {
       setSavingBudget(false);
+    }
+  };
+
+  const handleSaveSleepTime = async (data: SleepTimeFormData) => {
+    setSavingSleepTime(true);
+    try {
+      const response = await fetch('/api/user/sleep-time', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to update sleep time');
+      }
+
+      const updatedProfile = await response.json();
+      setProfile(updatedProfile);
+      toast.success('Sleep time updated successfully');
+    } catch (error) {
+      console.error('Error updating sleep time:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update sleep time');
+    } finally {
+      setSavingSleepTime(false);
     }
   };
 
@@ -298,6 +349,55 @@ export function ProfileForm() {
               className="w-full"
             >
               {savingBudget ? 'Saving...' : 'Save Budget'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Sleep Time Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sleep Time</CardTitle>
+          <CardDescription>
+            Set your typical sleep hours to avoid scheduling during rest time
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={sleepTimeForm.handleSubmit(handleSaveSleepTime)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Sleep Start Time</Label>
+              <Input
+                id="startTime"
+                type="time"
+                {...sleepTimeForm.register('startTime')}
+              />
+              {sleepTimeForm.formState.errors.startTime && (
+                <p className="text-sm text-destructive">
+                  {sleepTimeForm.formState.errors.startTime.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endTime">Wake Up Time</Label>
+              <Input
+                id="endTime"
+                type="time"
+                {...sleepTimeForm.register('endTime')}
+              />
+              {sleepTimeForm.formState.errors.endTime && (
+                <p className="text-sm text-destructive">
+                  {sleepTimeForm.formState.errors.endTime.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={savingSleepTime}
+              className="w-full"
+            >
+              {savingSleepTime ? 'Saving...' : 'Save Sleep Time'}
             </Button>
           </form>
         </CardContent>

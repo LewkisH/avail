@@ -34,6 +34,12 @@ export async function GET() {
           currency: user.budget.currency,
         }
       : null,
+    sleepTime: user.sleepTime
+      ? {
+          startTime: user.sleepTime.startTime,
+          endTime: user.sleepTime.endTime,
+        }
+      : null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   });

@@ -31,6 +31,7 @@ export class UserService {
       include: {
         interests: true,
         budget: true,
+        sleepTime: true,
       },
     });
   }
@@ -66,6 +67,7 @@ export class UserService {
         include: {
           interests: true,
           budget: true,
+          sleepTime: true,
         },
       });
     });
@@ -108,6 +110,45 @@ export class UserService {
       include: {
         interests: true,
         budget: true,
+        sleepTime: true,
+      },
+    });
+  }
+
+  /**
+   * Update user sleep time
+   * Creates or updates the user's sleep time preferences
+   * @param userId - User ID
+   * @param startTime - Sleep start time in HH:MM format (e.g., "22:00")
+   * @param endTime - Sleep end time in HH:MM format (e.g., "08:00")
+   * @returns Updated user with sleep time
+   */
+  static async updateUserSleepTime(
+    userId: string,
+    startTime: string,
+    endTime: string
+  ) {
+    // Upsert sleep time (create if doesn't exist, update if exists)
+    await prisma.userSleepTime.upsert({
+      where: { userId },
+      create: {
+        userId,
+        startTime,
+        endTime,
+      },
+      update: {
+        startTime,
+        endTime,
+      },
+    });
+
+    // Return updated user with sleep time
+    return await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        interests: true,
+        budget: true,
+        sleepTime: true,
       },
     });
   }

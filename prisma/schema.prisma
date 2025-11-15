@@ -23,6 +23,7 @@ model User {
   // Relations
   interests                  UserInterest[]
   budget                     UserBudget?
+  sleepTime                  UserSleepTime?
   ownedGroups                Group[]                        @relation("GroupOwner")
   groupMemberships           GroupMember[]
   sentInvitations            GroupInvitation[]              @relation("InvitationSender")
@@ -48,6 +49,16 @@ model UserBudget {
   minBudget Decimal  @db.Decimal(10, 2)
   maxBudget Decimal  @db.Decimal(10, 2)
   currency  String   @default("EUR")
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSleepTime {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  startTime String // Format: "HH:MM" (e.g., "22:00")
+  endTime   String // Format: "HH:MM" (e.g., "08:00")
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

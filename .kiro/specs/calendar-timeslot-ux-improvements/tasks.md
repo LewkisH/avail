@@ -28,7 +28,7 @@
   - Ensure buttons meet minimum touch target size (44x44px)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.4_
 
-- [ ] 4. Integrate duration slider into TimeSlotDialog
+- [x] 4. Integrate duration slider into TimeSlotDialog
   - Add DurationSlider component to the dialog form
   - Connect slider value to form duration field
   - Update end time display when slider changes
@@ -54,7 +54,7 @@
   - Style as read-only highlighted field
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 7. Enhance week view time slot cards with end time display
+- [x] 7. Enhance week view time slot cards with end time display
   - Update CalendarView renderWeekView function
   - Modify time slot card to display both start and end times
   - Format time range as "HH:MM AM/PM - HH:MM AM/PM"
@@ -63,7 +63,7 @@
   - Test responsive behavior across viewport sizes
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 8. Add edit and delete buttons to week view time slot cards
+- [x] 8. Add edit and delete buttons to week view time slot cards
   - Add Edit and Delete button components to week view cards
   - Implement click handlers that stop event propagation
   - Connect Edit button to open TimeSlotDialog with pre-populated data
@@ -74,7 +74,7 @@
   - Test interactions on mobile and desktop
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 5.1, 5.2, 5.3_
 
-- [ ] 9. Update TimeSlotDialog layout and styling for mobile
+- [x] 9. Update TimeSlotDialog layout and styling for mobile
   - Reorganize form into logical sections (header, date/time, duration, actions)
   - Ensure all input fields have minimum 44px height
   - Add adequate spacing between form elements (minimum 8px)
@@ -83,7 +83,7 @@
   - Verify touch target sizes meet accessibility standards
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 10. Handle multi-day time slot edge cases
+- [x] 10. Handle multi-day time slot edge cases
   - Update end time display to show date when it differs from start date
   - Format multi-day end time as "HH:MM AM/PM (MMM DD)"
   - Test time slots spanning midnight
