@@ -22,6 +22,12 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
                 Groups
               </a>
               <a
+                href="/calendar"
+                className="text-sm font-medium hover:underline"
+              >
+                Calendar
+              </a>
+              <a
                 href="/profile"
                 className="text-sm font-medium hover:underline"
               >
