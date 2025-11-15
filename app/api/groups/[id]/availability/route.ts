@@ -71,8 +71,9 @@ export async function GET(
   console.log('Timezone offset param:', timezoneOffsetParam);
   console.log('Parsed timezone offset:', timezoneOffset);
 
-  // Create date in UTC, then adjust for user's timezone
-  // If user is in UTC+2, offset is -120 minutes
+  // The date string represents midnight in the user's LOCAL timezone
+  // We need to convert it TO UTC for database queries
+  // If user is in UTC+2, offset is -120 minutes, so we ADD 120 to get UTC
   const date = new Date(Date.UTC(
     parseInt(dateParts[1]), // year
     parseInt(dateParts[2]) - 1, // month (0-indexed)
@@ -80,12 +81,13 @@ export async function GET(
     0, 0, 0, 0
   ));
 
-  console.log('Date before offset adjustment (UTC):', date.toISOString());
+  console.log('Date as UTC midnight:', date.toISOString());
 
-  // Adjust for timezone offset to get the actual local midnight
-  date.setMinutes(date.getMinutes() - timezoneOffset);
+  // Add the timezone offset to convert local midnight to UTC
+  // For UTC+2 (offset=-120), this subtracts 2 hours to get 22:00 previous day in UTC
+  date.setMinutes(date.getMinutes() + timezoneOffset);
 
-  console.log('Date after offset adjustment:', date.toISOString());
+  console.log('Date converted to UTC:', date.toISOString());
   console.log('Date local string:', date.toString());
   
   if (isNaN(date.getTime())) {
@@ -250,7 +252,8 @@ export async function POST(
     console.log('Timezone offset param:', timezoneOffsetParam);
     console.log('Parsed timezone offset:', timezoneOffset);
 
-    // Create date in UTC, then adjust for user's timezone
+    // The date string represents midnight in the user's LOCAL timezone
+    // We need to convert it TO UTC for database queries
     const date = new Date(Date.UTC(
       parseInt(dateParts[1]), // year
       parseInt(dateParts[2]) - 1, // month (0-indexed)
@@ -258,12 +261,13 @@ export async function POST(
       0, 0, 0, 0
     ));
 
-    console.log('Date before offset adjustment (UTC):', date.toISOString());
+    console.log('Date as UTC midnight:', date.toISOString());
 
-    // Adjust for timezone offset to get the actual local midnight
-    date.setMinutes(date.getMinutes() - timezoneOffset);
+    // Add the timezone offset to convert local midnight to UTC
+    // For UTC+2 (offset=-120), this subtracts 2 hours to get 22:00 previous day in UTC
+    date.setMinutes(date.getMinutes() + timezoneOffset);
 
-    console.log('Date after offset adjustment:', date.toISOString());
+    console.log('Date converted to UTC:', date.toISOString());
     console.log('Date local string:', date.toString());
     
     if (isNaN(date.getTime())) {
