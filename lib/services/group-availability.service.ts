@@ -153,12 +153,18 @@ export class GroupAvailabilityService {
       const userEvents = eventsByUser.get(userId) || [];
 
       // Parse sleep times (format: "HH:MM" stored as UTC)
-      const [startHour, startMinute] = sleepTime.startTime.split(":").map(Number);
+      const [startHour, startMinute] = sleepTime.startTime
+        .split(":")
+        .map(Number);
       const [endHour, endMinute] = sleepTime.endTime.split(":").map(Number);
 
       console.log(`User ${userId} - Sleep time conversion:`);
-      console.log(`  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`);
-      console.log(`  Day window: ${dayStart.toISOString()} → ${dayEnd.toISOString()}`);
+      console.log(
+        `  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`
+      );
+      console.log(
+        `  Day window: ${dayStart.toISOString()} → ${dayEnd.toISOString()}`
+      );
 
       const periodsToAdd: Array<{ startTime: Date; endTime: Date }> = [];
 
@@ -171,65 +177,86 @@ export class GroupAvailabilityService {
       const createSleepPeriod = (baseDate: Date) => {
         const start = new Date(baseDate);
         start.setUTCHours(startHour, startMinute, 0, 0);
-        
+
         let end = new Date(baseDate);
         end.setUTCHours(endHour, endMinute, 0, 0);
-        
+
         // If end time <= start time, sleep extends to next day
         if (end <= start) {
           end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
         }
-        
+
         return { start, end };
       };
 
       // 1. Check yesterday's sleep (started on day-1, might end during our day)
       const yesterdayBase = new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
       const yesterdaySleep = createSleepPeriod(yesterdayBase);
-      
-      console.log(`  Yesterday's sleep: ${yesterdaySleep.start.toISOString()} → ${yesterdaySleep.end.toISOString()}`);
-      
+
+      console.log(
+        `  Yesterday's sleep: ${yesterdaySleep.start.toISOString()} → ${yesterdaySleep.end.toISOString()}`
+      );
+
       if (yesterdaySleep.end > dayStart && yesterdaySleep.start < dayEnd) {
-        const overlapStart = yesterdaySleep.start < dayStart ? dayStart : yesterdaySleep.start;
-        const overlapEnd = yesterdaySleep.end > dayEnd ? dayEnd : yesterdaySleep.end;
+        const overlapStart =
+          yesterdaySleep.start < dayStart ? dayStart : yesterdaySleep.start;
+        const overlapEnd =
+          yesterdaySleep.end > dayEnd ? dayEnd : yesterdaySleep.end;
         periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
-        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
+        console.log(
+          `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
+        );
       }
 
       // 2. Check today's sleep (starts on our day)
       const todaySleep = createSleepPeriod(dayStart);
-      
-      console.log(`  Today's sleep: ${todaySleep.start.toISOString()} → ${todaySleep.end.toISOString()}`);
-      
+
+      console.log(
+        `  Today's sleep: ${todaySleep.start.toISOString()} → ${todaySleep.end.toISOString()}`
+      );
+
       if (todaySleep.end > dayStart && todaySleep.start < dayEnd) {
-        const overlapStart = todaySleep.start < dayStart ? dayStart : todaySleep.start;
+        const overlapStart =
+          todaySleep.start < dayStart ? dayStart : todaySleep.start;
         const overlapEnd = todaySleep.end > dayEnd ? dayEnd : todaySleep.end;
         periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
-        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
+        console.log(
+          `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
+        );
       }
 
       // 3. Check tomorrow's sleep (might start during our day)
       const tomorrowBase = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
       const tomorrowSleep = createSleepPeriod(tomorrowBase);
-      
-      console.log(`  Tomorrow's sleep: ${tomorrowSleep.start.toISOString()} → ${tomorrowSleep.end.toISOString()}`);
-      
+
+      console.log(
+        `  Tomorrow's sleep: ${tomorrowSleep.start.toISOString()} → ${tomorrowSleep.end.toISOString()}`
+      );
+
       if (tomorrowSleep.end > dayStart && tomorrowSleep.start < dayEnd) {
-        const overlapStart = tomorrowSleep.start < dayStart ? dayStart : tomorrowSleep.start;
-        const overlapEnd = tomorrowSleep.end > dayEnd ? dayEnd : tomorrowSleep.end;
+        const overlapStart =
+          tomorrowSleep.start < dayStart ? dayStart : tomorrowSleep.start;
+        const overlapEnd =
+          tomorrowSleep.end > dayEnd ? dayEnd : tomorrowSleep.end;
         periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
-        console.log(`    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`);
+        console.log(
+          `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
+        );
       }
 
       // Add all overlapping sleep periods to user events
       console.log(`  periodsToAdd count: ${periodsToAdd.length}`);
       for (const period of periodsToAdd) {
-        console.log(`  Adding sleep period: ${period.startTime.toISOString()} → ${period.endTime.toISOString()}`);
+        console.log(
+          `  Adding sleep period: ${period.startTime.toISOString()} → ${period.endTime.toISOString()}`
+        );
         userEvents.push(period);
       }
 
       eventsByUser.set(userId, userEvents);
-      console.log(`  Total events for user after adding sleep: ${userEvents.length}`);
+      console.log(
+        `  Total events for user after adding sleep: ${userEvents.length}`
+      );
     }
     console.log("");
 
@@ -239,7 +266,9 @@ export class GroupAvailabilityService {
 
     for (const userId of userIds) {
       const userEvents = eventsByUser.get(userId) || [];
-      console.log(`User ${userId} has ${userEvents.length} total events (calendar + sleep)`);
+      console.log(
+        `User ${userId} has ${userEvents.length} total events (calendar + sleep)`
+      );
       const freeWindows: TimeRange[] = [];
 
       if (userEvents.length === 0) {
