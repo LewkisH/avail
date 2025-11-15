@@ -37,9 +37,9 @@ export class GroupAvailabilityService {
     date: Date,
     txOrPrisma: typeof prisma | any = prisma
   ): Promise<Map<string, TimeRange[]>> {
-    console.log('=== findFreeTimeWindows ===');
-    console.log('Input date:', date.toISOString());
-    console.log('Input date local:', date.toString());
+    console.log("=== findFreeTimeWindows ===");
+    console.log("Input date:", date.toISOString());
+    console.log("Input date local:", date.toString());
 
     // Set up date boundaries (start and end of the day)
     // The date parameter already represents the start of the day in the user's timezone (in UTC)
@@ -47,10 +47,10 @@ export class GroupAvailabilityService {
     // - date will be 2025-11-14T22:00:00.000Z (which is Nov 15 00:00 in UTC+2)
     // We need to add 24 hours to get the end of that day
     const dayStart = new Date(date.getTime());
-    const dayEnd = new Date(date.getTime() + (24 * 60 * 60 * 1000) - 1); // Add 24 hours minus 1ms
+    const dayEnd = new Date(date.getTime() + 24 * 60 * 60 * 1000 - 1); // Add 24 hours minus 1ms
 
-    console.log('Day start:', dayStart.toISOString(), '/', dayStart.toString());
-    console.log('Day end:', dayEnd.toISOString(), '/', dayEnd.toString());
+    console.log("Day start:", dayStart.toISOString(), "/", dayStart.toString());
+    console.log("Day end:", dayEnd.toISOString(), "/", dayEnd.toString());
 
     // Fetch all calendar events for all users on this date
     const events = await txOrPrisma.calendarEvent.findMany({
@@ -60,15 +60,18 @@ export class GroupAvailabilityService {
         endTime: { gte: dayStart },
       },
       orderBy: {
-        startTime: 'asc',
+        startTime: "asc",
       },
     });
 
-    console.log(`Found ${events.length} events:`, events.map((e: CalendarEvent) => ({
-      start: e.startTime.toISOString(),
-      end: e.endTime.toISOString(),
-      userId: e.userId
-    })));
+    console.log(
+      `Found ${events.length} events:`,
+      events.map((e: CalendarEvent) => ({
+        start: e.startTime.toISOString(),
+        end: e.endTime.toISOString(),
+        userId: e.userId,
+      }))
+    );
 
     // Fetch user sleep times
     const userSleepTimes = await txOrPrisma.userSleepTime.findMany({
@@ -78,7 +81,10 @@ export class GroupAvailabilityService {
     });
 
     // Create a map of sleep times by user
-    const sleepTimeByUser = new Map<string, { startTime: string; endTime: string }>();
+    const sleepTimeByUser = new Map<
+      string,
+      { startTime: string; endTime: string }
+    >();
     for (const sleepTime of userSleepTimes) {
       sleepTimeByUser.set(sleepTime.userId, {
         startTime: sleepTime.startTime,
@@ -104,50 +110,115 @@ export class GroupAvailabilityService {
       eventsByUser.set(event.userId, userEvents);
     }
 
+    // Log busy times (calendar events) for each user
+    console.log("=== BUSY TIMES (Calendar Events) ===");
+    for (const [userId, userEvents] of eventsByUser.entries()) {
+      const calendarEvents = events.filter(
+        (e: CalendarEvent) => e.userId === userId
+      );
+      if (calendarEvents.length > 0) {
+        console.log(`User ${userId}:`);
+        calendarEvents.forEach((event: CalendarEvent, index: number) => {
+          console.log(
+            `  [${index + 1}] ${event.startTime.toISOString()} → ${event.endTime.toISOString()}`
+          );
+          console.log(
+            `      Local: ${event.startTime.toString()} → ${event.endTime.toString()}`
+          );
+        });
+      } else {
+        console.log(`User ${userId}: No calendar events`);
+      }
+    }
+
+    // Log sleep times for each user
+    console.log("\n=== SLEEP TIMES (UTC) ===");
+    for (const userId of userIds) {
+      const sleepTime = sleepTimeByUser.get(userId);
+      if (sleepTime) {
+        console.log(
+          `User ${userId}: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC in HH:MM format)`
+        );
+      } else {
+        console.log(`User ${userId}: No sleep time configured`);
+      }
+    }
+    console.log("");
+
     // Add sleep time as busy time for each user
     for (const userId of userIds) {
       const sleepTime = sleepTimeByUser.get(userId);
       if (!sleepTime) continue;
 
       const userEvents = eventsByUser.get(userId) || [];
-      
-      // Parse sleep times (format: "HH:MM")
-      const [startHour, startMinute] = sleepTime.startTime.split(':').map(Number);
-      const [endHour, endMinute] = sleepTime.endTime.split(':').map(Number);
 
-      // Create Date objects for sleep start and end on the given day
+      // Parse sleep times (format: "HH:MM" stored as UTC)
+      // These represent UTC hours, so we apply them directly to the UTC day
+      const [startHour, startMinute] = sleepTime.startTime
+        .split(":")
+        .map(Number);
+      const [endHour, endMinute] = sleepTime.endTime.split(":").map(Number);
+
+      // Create Date objects for sleep start and end on the given day in UTC
+      // dayStart is already a UTC timestamp representing midnight of the day
       const sleepStart = new Date(dayStart);
-      sleepStart.setHours(startHour, startMinute, 0, 0);
+      sleepStart.setUTCHours(startHour, startMinute, 0, 0);
 
       const sleepEnd = new Date(dayStart);
-      sleepEnd.setHours(endHour, endMinute, 0, 0);
+      sleepEnd.setUTCHours(endHour, endMinute, 0, 0);
+
+      console.log(`User ${userId} - Sleep time conversion:`);
+      console.log(
+        `  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`
+      );
+      console.log(
+        `  Sleep start: ${sleepStart.toISOString()} / ${sleepStart.toString()}`
+      );
+      console.log(
+        `  Sleep end: ${sleepEnd.toISOString()} / ${sleepEnd.toString()}`
+      );
 
       // Handle sleep time that crosses midnight (e.g., 22:00 - 08:00)
       if (sleepEnd <= sleepStart) {
+        console.log(`  Sleep crosses midnight - splitting into two periods`);
         // Sleep crosses midnight, split into two periods:
         // 1. From sleep start to end of day
-        userEvents.push({
+        const period1 = {
           startTime: sleepStart,
           endTime: dayEnd,
-        });
-        
+        };
+        userEvents.push(period1);
+        console.log(
+          `    Period 1: ${period1.startTime.toISOString()} → ${period1.endTime.toISOString()}`
+        );
+
         // 2. From start of day to sleep end
-        userEvents.push({
+        const period2 = {
           startTime: dayStart,
           endTime: sleepEnd,
-        });
+        };
+        userEvents.push(period2);
+        console.log(
+          `    Period 2: ${period2.startTime.toISOString()} → ${period2.endTime.toISOString()}`
+        );
       } else {
         // Sleep is within the same day
-        userEvents.push({
+        const sleepPeriod = {
           startTime: sleepStart,
           endTime: sleepEnd,
-        });
+        };
+        userEvents.push(sleepPeriod);
+        console.log(
+          `  Sleep period: ${sleepPeriod.startTime.toISOString()} → ${sleepPeriod.endTime.toISOString()}`
+        );
       }
 
       eventsByUser.set(userId, userEvents);
     }
+    console.log("");
 
     // Calculate free time for each user
+    console.log("=== CALCULATING FREE TIME ===");
     const freeTimeByUser = new Map<string, TimeRange[]>();
 
     for (const userId of userIds) {
@@ -162,7 +233,9 @@ export class GroupAvailabilityService {
         });
       } else {
         // Sort events by start time
-        userEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+        userEvents.sort(
+          (a, b) => a.startTime.getTime() - b.startTime.getTime()
+        );
 
         // Merge overlapping events
         const mergedEvents: TimeRange[] = [];
@@ -175,7 +248,10 @@ export class GroupAvailabilityService {
           if (nextEvent.startTime <= currentEvent.endTime) {
             // Extend current event to cover both
             currentEvent.endTime = new Date(
-              Math.max(currentEvent.endTime.getTime(), nextEvent.endTime.getTime())
+              Math.max(
+                currentEvent.endTime.getTime(),
+                nextEvent.endTime.getTime()
+              )
             );
           } else {
             // No overlap, save current and start new
@@ -218,8 +294,25 @@ export class GroupAvailabilityService {
         }
       }
 
+      console.log(
+        `User ${userId} - Free time windows (${freeWindows.length}):`
+      );
+      if (freeWindows.length === 0) {
+        console.log(`  No free time available`);
+      } else {
+        freeWindows.forEach((window, index) => {
+          console.log(
+            `  [${index + 1}] ${window.startTime.toISOString()} → ${window.endTime.toISOString()}`
+          );
+          console.log(
+            `      Local: ${window.startTime.toString()} → ${window.endTime.toString()}`
+          );
+        });
+      }
+
       freeTimeByUser.set(userId, freeWindows);
     }
+    console.log("");
 
     return freeTimeByUser;
   }
