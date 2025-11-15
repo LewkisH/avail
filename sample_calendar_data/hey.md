@@ -1,2 +1,27 @@
 add ics files here please
 and google links
+
+EVA
+dc79ba5e0baacd5a7d9ea513a14b752a06b7203f84e5e38900c6625372533655@group.calendar.google.com
+
+https://calendar.google.com/calendar/embed?src=dc79ba5e0baacd5a7d9ea513a14b752a06b7203f84e5e38900c6625372533655%40group.calendar.google.com&ctz=Europe%2FTallinn
+
+John
+f94e775bd8d58c720882708a5e45d6083daadb39abd97d9848ec34c3ea463060@group.calendar.google.com
+
+https://calendar.google.com/calendar/embed?src=f94e775bd8d58c720882708a5e45d6083daadb39abd97d9848ec34c3ea463060%40group.calendar.google.com&ctz=Europe%2FTallinn
+
+Karl
+82e83135cc426aa6ea7f3e99589cc809f86f1c1c3f2808c738af875ebd5470ee@group.calendar.google.com
+
+https://calendar.google.com/calendar/embed?src=82e83135cc426aa6ea7f3e99589cc809f86f1c1c3f2808c738af875ebd5470ee%40group.calendar.google.com&ctz=Europe%2FTallinn
+
+Leo
+28155e66b7106c3ab61a40f850d9fc1b7ec01526358db8e82a7bf77d5343bc65@group.calendar.google.com
+
+https://calendar.google.com/calendar/embed?src=28155e66b7106c3ab61a40f850d9fc1b7ec01526358db8e82a7bf77d5343bc65%40group.calendar.google.com&ctz=Europe%2FTallinn
+
+Liis
+7c3699611d20fb63f8435099ccdae420e760786f3811e76c097b1875c26f8483@group.calendar.google.com
+
+https://calendar.google.com/calendar/embed?src=7c3699611d20fb63f8435099ccdae420e760786f3811e76c097b1875c26f8483%40group.calendar.google.com&ctz=Europe%2FTallinn

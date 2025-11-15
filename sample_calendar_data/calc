@@ -1,0 +1,387 @@
+// algoCalcRecs.ts
+
+import * as fs from "fs";
+
+// ---------- Tüübid ----------
+
+interface BusyInterval {
+  start: string;   // ISO string "2025-11-16T12:00:00"
+  end: string;
+  summary: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  group: string;
+  calendar_busy: BusyInterval[];
+}
+
+interface Group {
+  id: string;
+  name: string;
+  members: string[];
+}
+
+interface Activity {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  location: string;
+  price_eur: number;
+  distance_km: number;
+}
+
+interface InputData {
+  users: User[];
+  groups: Group[];
+  activities: Activity[];
+}
+
+interface Recommendation {
+  groupId: string;
+  activityId: string;
+  activityName: string;
+  slotStart: string;
+  slotEnd: string;
+  slotScore: number;
+  activityScore: number;
+  totalScore: number;
+  location: string;
+  price_eur: number;
+  distance_km: number;
+}
+
+// ---------- Helperid: aeg / intervallid ----------
+
+function parseDt(s: string): Date {
+  // ISO string -> Date
+  return new Date(s);
+}
+
+function intervalsOverlap(
+  start1: Date,
+  end1: Date,
+  start2: Date,
+  end2: Date
+): boolean {
+  return start1 < end2 && start2 < end1;
+}
+
+function userIsFreeForSlot(
+  user: User,
+  slotStart: Date,
+  slotEnd: Date
+): boolean {
+  for (const busy of user.calendar_busy ?? []) {
+    const bStart = parseDt(busy.start);
+    const bEnd = parseDt(busy.end);
+    if (intervalsOverlap(slotStart, slotEnd, bStart, bEnd)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// ---------- AlgoCalcV1: TimeSlot skoor ----------
+
+// JS Date.getDay(): 0=Sun,1=Mon,...6=Sat
+// Teeme Mon=0,...Sun=6, et oleks sama loogika kui Pythonis
+function weekdayMon0(d: Date): number {
+  const dow = d.getDay(); // 0..6
+  return (dow + 6) % 7;   // Mon=0,...Sun=6
+}
+
+function getDayScore(dt: Date): number {
+  /*
+   Slot Day
+   (Mon,Tue,Wed) = 1
+   (Thur) = 5
+   (Sun) = 8
+   (Friday,Sat) = 10
+  */
+  const wd = weekdayMon0(dt);
+  if (wd === 0 || wd === 1 || wd === 2) return 1;  // Mon–Wed
+  if (wd === 3) return 5;                          // Thu
+  if (wd === 6) return 8;                          // Sun
+  return 10; // Fri, Sat
+}
+
+function getSdayFactor(dt: Date): number {
+  /*
+    s_day:
+    (Mon to Wed) 0.2
+    (Thu) 0.4
+    (Fri to Sat) 1
+    (Sun) 0.8
+  */
+  const wd = weekdayMon0(dt);
+  if (wd === 0 || wd === 1 || wd === 2) return 0.2;
+  if (wd === 3) return 0.4;
+  if (wd === 4 || wd === 5) return 1.0;
+  return 0.8; // Sun
+}
+
+function getTimeWindowScore(dt: Date): number {
+  /*
+    Z = time of day score per weekday, kasutame sloti ALGUSE aega
+  */
+  const hour = dt.getHours();
+  const wd = weekdayMon0(dt);
+
+  type Row = [number, number, number]; // [startHour,endHour,score]
+
+  function chooseScore(table: Row[]): number {
+    for (const [sh, eh, sc] of table) {
+      if (hour >= sh && hour < eh) return sc;
+    }
+    return 1;
+  }
+
+  // Mon–Wed
+  if (wd === 0 || wd === 1 || wd === 2) {
+    const table: Row[] = [
+      [0, 8, 1],
+      [8, 12, 2],
+      [12, 16, 3],
+      [16, 18, 4],
+      [18, 20, 8],
+      [20, 22, 5],
+      [22, 24, 2],
+    ];
+    return chooseScore(table);
+  }
+
+  // Thu
+  if (wd === 3) {
+    const table: Row[] = [
+      [0, 8, 1],
+      [8, 12, 2],
+      [12, 16, 3],
+      [16, 18, 5],
+      [18, 20, 8],
+      [20, 22, 6],
+      [22, 24, 4],
+    ];
+    return chooseScore(table);
+  }
+
+  // Fri
+  if (wd === 4) {
+    const table: Row[] = [
+      [0, 8, 1],
+      [8, 12, 2],
+      [12, 16, 3],
+      [16, 18, 5],
+      [18, 20, 8],
+      [20, 22, 10],
+      [22, 24, 8],
+    ];
+    return chooseScore(table);
+  }
+
+  // Sat
+  if (wd === 5) {
+    const table: Row[] = [
+      [0, 8, 1],
+      [8, 12, 2],
+      [12, 16, 4],
+      [16, 18, 6],
+      [18, 20, 8],
+      [20, 22, 10],
+      [22, 24, 8],
+    ];
+    return chooseScore(table);
+  }
+
+  // Sun
+  if (wd === 6) {
+    const table: Row[] = [
+      [0, 8, 1],
+      [8, 12, 3],
+      [12, 16, 7],
+      [16, 18, 8],
+      [18, 20, 7],
+      [20, 22, 4],
+      [22, 24, 1],
+    ];
+    return chooseScore(table);
+  }
+
+  return 1;
+}
+
+function getDurationScore(hours: number): number {
+  /*
+    Duration
+    (Under 1h) = 1
+    (Over 1h) = 3
+    (Over 2h) = 5
+    (Over 3h) = 8
+    (Over 4h) = 10
+  */
+  if (hours < 1) return 1;
+  if (hours > 4) return 10;
+  if (hours > 3) return 8;
+  if (hours > 2) return 5;
+  if (hours > 1) return 3;
+  return 1;
+}
+
+function computeSlotScore(
+  slotStart: Date,
+  slotEnd: Date,
+  groupSize: number,
+  availableSize: number
+): number {
+  const dayScore = getDayScore(slotStart);
+  const z = getTimeWindowScore(slotStart);
+  const sDay = getSdayFactor(slotStart);
+
+  const S1 = dayScore * 0.35;
+  const S2 = z * sDay * 0.2;
+
+  let S3 = 0;
+  if (availableSize > 0) {
+    // sinu case'is me kasutame ainult kui kõik on vabad -> groupSize == availableSize -> max
+    S3 = (groupSize / availableSize) * 10 * 0.25;
+  }
+
+  const durationHours =
+    (slotEnd.getTime() - slotStart.getTime()) / (1000 * 3600);
+  const dScore = getDurationScore(durationHours);
+  const S4 = dScore * 0.2;
+
+  return S1 + S2 + S3 + S4;
+}
+
+// ---------- AlgoCalcV1: Activity skoor ----------
+
+function distanceBucket(distanceKm: number): number {
+  /*
+    Proximity:
+    (Under 1.5 km) = 10
+    (Under 3.5 km) = 8
+    (Under 6 km) = 6
+    (Under 10 km) = 3
+    (More than 10 km) = 1
+  */
+  if (distanceKm < 1.5) return 10;
+  if (distanceKm < 3.5) return 8;
+  if (distanceKm < 6.0) return 6;
+  if (distanceKm < 10.0) return 3;
+  return 1;
+}
+
+function costBucket(priceEur: number): number {
+  /*
+    Cost (Per user)
+    (>= 10 Euro) = 10
+    (>= 25 Euro) = 8
+    (>= 50 Euro) = 6
+    (Over 50 Euro) = 2
+  */
+  if (priceEur >= 50) {
+    if (priceEur > 50) return 2;
+    return 6;
+  }
+  if (priceEur >= 25) return 8;
+  if (priceEur >= 10) return 10;
+  // kui <10, paneme ka 10 (odav)
+  return 10;
+}
+
+function computeActivityScore(activity: Activity): number {
+  const dist = activity.distance_km ?? 5.0;
+  const price = activity.price_eur ?? 10.0;
+
+  const prox = distanceBucket(dist);
+  const cost = costBucket(price);
+
+  const S_prox = prox * 0.6;
+  const S_cost = cost * 0.4;
+
+  return S_prox + S_cost;
+}
+
+// ---------- Põhifunktsioon: soovitused gruppidele ----------
+
+export function computeGroupRecommendations(
+  data: InputData
+): Record<string, Recommendation[]> {
+  const usersById: Record<string, User> = {};
+  for (const u of data.users) {
+    usersById[u.id] = u;
+  }
+
+  const results: Record<string, Recommendation[]> = {};
+
+  for (const group of data.groups) {
+    const gid = group.id;
+    const memberIds = group.members;
+    const members = memberIds.map((id) => usersById[id]);
+
+    const groupRecs: Recommendation[] = [];
+
+    for (const activity of data.activities) {
+      const aStart = parseDt(activity.start);
+      const aEnd = parseDt(activity.end);
+
+      // kontrollime, kas kõik grupiliikmed on vabad
+      const freeMembers = members.filter((m) =>
+        userIsFreeForSlot(m, aStart, aEnd)
+      );
+
+      if (freeMembers.length !== members.length) {
+        continue; // keegi on kinni
+      }
+
+      const slotScore = computeSlotScore(
+        aStart,
+        aEnd,
+        members.length,
+        freeMembers.length
+      );
+      const activityScore = computeActivityScore(activity);
+      const totalScore = slotScore + activityScore;
+
+      groupRecs.push({
+        groupId: gid,
+        activityId: activity.id,
+        activityName: activity.name,
+        slotStart: activity.start,
+        slotEnd: activity.end,
+        slotScore: Number(slotScore.toFixed(3)),
+        activityScore: Number(activityScore.toFixed(3)),
+        totalScore: Number(totalScore.toFixed(3)),
+        location: activity.location,
+        price_eur: activity.price_eur,
+        distance_km: activity.distance_km,
+      });
+    }
+
+    groupRecs.sort((a, b) => b.totalScore - a.totalScore);
+    results[gid] = groupRecs;
+  }
+
+  return results;
+}
+
+// ---------- Näidis kasutus CLI skriptina ----------
+
+if (require.main === module) {
+  const raw = fs.readFileSync("input_data.json", "utf-8");
+  const data: InputData = JSON.parse(raw);
+
+  const recs = computeGroupRecommendations(data);
+
+  for (const [gid, list] of Object.entries(recs)) {
+    console.log(`\n=== GROUP ${gid} ===`);
+    for (const r of list.slice(0, 5)) {
+      console.log(
+        `${r.activityId} | ${r.activityName} | ${r.slotStart}–${r.slotEnd} | total=${r.totalScore}`
+      );
+    }
+  }
+}
