@@ -80,9 +80,32 @@ function calculateEndTime(
   date: string,
   startTime: string,
   durationMinutes: number
-): { endTime: string; endDate: string } {
+): { endTime: string; endDate: string } | null {
+  // Validate inputs before processing
+  if (!date || !startTime || !durationMinutes) {
+    return null;
+  }
+
+  // Validate startTime format (HH:MM)
+  const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+  if (!timeRegex.test(startTime)) {
+    return null;
+  }
+
+  // Validate date format (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) {
+    return null;
+  }
+
   const [hours, minutes] = startTime.split(':').map(Number);
   const startDateTime = new Date(date);
+  
+  // Check if date is valid
+  if (isNaN(startDateTime.getTime())) {
+    return null;
+  }
+
   startDateTime.setHours(hours, minutes, 0, 0);
 
   const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
@@ -244,7 +267,7 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                     <FormLabel className="text-sm font-medium">Title</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="e.g., Available for lunch"
+                        placeholder="e.g., At the dentist"
                         {...field}
                         disabled={form.formState.isSubmitting}
                         className="min-h-[44px] text-base"
@@ -384,11 +407,17 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                         <p className="text-sm text-muted-foreground">
                           <span className="font-medium">End time:</span>{" "}
                           {(() => {
-                            const { endTime, endDate } = calculateEndTime(
+                            const result = calculateEndTime(
                               form.watch("date"),
                               form.watch("startTime"),
                               field.value
                             );
+                            
+                            if (!result) {
+                              return "Invalid time";
+                            }
+
+                            const { endTime, endDate } = result;
                             const startDate = form.watch("date");
 
                             // Format time in 24-hour format
@@ -409,11 +438,17 @@ export function TimeSlotDialog({ open, onOpenChange, timeSlot, onSuccess }: Time
                           })()}
                         </p>
                         {(() => {
-                          const { endDate } = calculateEndTime(
+                          const result = calculateEndTime(
                             form.watch("date"),
                             form.watch("startTime"),
                             field.value
                           );
+                          
+                          if (!result) {
+                            return null;
+                          }
+
+                          const { endDate } = result;
                           const startDate = form.watch("date");
 
                           // Show multi-day indicator if slot spans multiple days

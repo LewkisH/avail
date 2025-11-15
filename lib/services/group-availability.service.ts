@@ -164,8 +164,14 @@ export class GroupAvailabilityService {
       const sleepStart = new Date(dayStart);
       sleepStart.setUTCHours(startHour, startMinute, 0, 0);
 
-      const sleepEnd = new Date(dayStart);
+      let sleepEnd = new Date(dayStart);
       sleepEnd.setUTCHours(endHour, endMinute, 0, 0);
+
+      // If sleep end time is before or equal to start time, it means sleep crosses midnight
+      // Add one day to the end time
+      if (sleepEnd <= sleepStart) {
+        sleepEnd = new Date(sleepEnd.getTime() + 24 * 60 * 60 * 1000);
+      }
 
       console.log(`User ${userId} - Sleep time conversion:`);
       console.log(
@@ -179,37 +185,36 @@ export class GroupAvailabilityService {
       );
 
       // Handle sleep time that crosses midnight (e.g., 22:00 - 08:00)
-      if (sleepEnd <= sleepStart) {
-        console.log(`  Sleep crosses midnight - splitting into two periods`);
-        // Sleep crosses midnight, split into two periods:
-        // 1. From sleep start to end of day
-        const period1 = {
-          startTime: sleepStart,
-          endTime: dayEnd,
-        };
-        userEvents.push(period1);
-        console.log(
-          `    Period 1: ${period1.startTime.toISOString()} → ${period1.endTime.toISOString()}`
-        );
-
-        // 2. From start of day to sleep end
-        const period2 = {
-          startTime: dayStart,
-          endTime: sleepEnd,
-        };
-        userEvents.push(period2);
-        console.log(
-          `    Period 2: ${period2.startTime.toISOString()} → ${period2.endTime.toISOString()}`
-        );
-      } else {
-        // Sleep is within the same day
+      // Check if sleep period extends beyond the current day's window
+      if (sleepStart >= dayStart && sleepEnd <= dayEnd) {
+        // Sleep is entirely within the current day
         const sleepPeriod = {
           startTime: sleepStart,
           endTime: sleepEnd,
         };
         userEvents.push(sleepPeriod);
         console.log(
-          `  Sleep period: ${sleepPeriod.startTime.toISOString()} → ${sleepPeriod.endTime.toISOString()}`
+          `  Sleep period (within day): ${sleepPeriod.startTime.toISOString()} → ${sleepPeriod.endTime.toISOString()}`
+        );
+      } else if (sleepStart < dayStart && sleepEnd > dayStart) {
+        // Sleep started before this day and ends during this day
+        const sleepPeriod = {
+          startTime: dayStart,
+          endTime: sleepEnd <= dayEnd ? sleepEnd : dayEnd,
+        };
+        userEvents.push(sleepPeriod);
+        console.log(
+          `  Sleep period (from previous day): ${sleepPeriod.startTime.toISOString()} → ${sleepPeriod.endTime.toISOString()}`
+        );
+      } else if (sleepStart >= dayStart && sleepStart <= dayEnd && sleepEnd > dayEnd) {
+        // Sleep starts during this day and extends into next day
+        const sleepPeriod = {
+          startTime: sleepStart,
+          endTime: dayEnd,
+        };
+        userEvents.push(sleepPeriod);
+        console.log(
+          `  Sleep period (into next day): ${sleepPeriod.startTime.toISOString()} → ${sleepPeriod.endTime.toISOString()}`
         );
       }
 
