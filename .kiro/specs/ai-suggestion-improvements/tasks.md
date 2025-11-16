@@ -87,3 +87,4 @@
   - Confirm personalized reasoning is displayed properly
   - Check that interest prompt suggestion is visible when present
   - _Requirements: 1.3, 2.1, 3.2_
+P

@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { InteractiveTimeSlotRow } from '@/components/groups/interactive-time-slot-row';
 import { ConfirmationControls } from '@/components/calendar/confirmation-controls';
 import { TimeSlotModal } from '@/components/calendar/time-slot-modal';
+import { useClerkUsers } from '@/hooks/use-clerk-users';
 import type { UnavailabilityRange, TimeSlot } from '@/lib/utils/unavailability-grid';
 
 interface GroupAvailabilityViewProps {
@@ -345,6 +347,7 @@ interface TimeSlotRowProps {
     name: string;
     email: string;
   }>;
+  clerkUsers?: Map<string, { id: string; name: string; imageUrl: string | null; email: string }>;
   onClick?: () => void;
 }
 
@@ -353,6 +356,7 @@ function TimeSlotRow({
   startTime,
   endTime,
   participants,
+  clerkUsers,
   onClick,
 }: TimeSlotRowProps) {
   const formatTime = (date: Date) => {
@@ -408,21 +412,26 @@ function TimeSlotRow({
       </div>
 
       <div className="flex items-center -space-x-2">
-        {participants.map((participant) => (
-          <div
-            key={participant.id}
-            className={`
-              w-8 h-8 rounded-full
-              flex items-center justify-center
-              text-white text-xs font-semibold
-              border-2 border-white
-              ${getAvatarColor(participant.id)}
-            `}
-            title={participant.name}
-          >
-            {getInitials(participant.name)}
-          </div>
-        ))}
+        {participants.map((participant) => {
+          const clerkUser = clerkUsers?.get(participant.id);
+          const imageUrl = clerkUser?.imageUrl;
+          const displayName = clerkUser?.name || participant.name;
+
+          return (
+            <Avatar
+              key={participant.id}
+              className="w-8 h-8 border-2 border-white"
+              title={displayName}
+            >
+              <AvatarImage src={imageUrl || undefined} alt={displayName} />
+              <AvatarFallback
+                className={`${getAvatarColor(participant.id)} text-white text-xs font-semibold`}
+              >
+                {getInitials(displayName)}
+              </AvatarFallback>
+            </Avatar>
+          );
+        })}
       </div>
     </div>
   );
@@ -434,6 +443,7 @@ interface TimeSlotsListProps {
   loading: boolean;
   error: string | null;
   draftRanges: Map<string, DraftUnavailabilityRange[]>;
+  clerkUsers?: Map<string, { id: string; name: string; imageUrl: string | null; email: string }>;
   onRangeCreate: (timeSlotId: string, range: UnavailabilityRange) => void;
   onRangeUpdate: (
     timeSlotId: string,
@@ -449,6 +459,7 @@ function TimeSlotsList({
   loading,
   error,
   draftRanges,
+  clerkUsers,
   onRangeCreate,
   onRangeUpdate,
   onRangeDelete,
@@ -529,6 +540,7 @@ function TimeSlotsList({
               startTime={new Date(window.startTime)}
               endTime={new Date(window.endTime)}
               participants={window.participants}
+              clerkUsers={clerkUsers}
             />
           </InteractiveTimeSlotRow>
         );
@@ -563,6 +575,18 @@ export function GroupAvailabilityView({
 
   const { availabilityWindows, loading, error, refresh } =
     useGroupsAvailability(groupIds, selectedDate);
+
+  // Extract unique participant IDs from all availability windows
+  const participantIds = Array.from(
+    new Set(
+      availabilityWindows.flatMap((window) =>
+        window.participants.map((p) => p.id)
+      )
+    )
+  );
+
+  // Fetch Clerk user data for all participants
+  const { users: clerkUsers } = useClerkUsers(participantIds);
 
   const handleDateSelect = (date: Date) => {
     const normalizedDate = new Date(date);
@@ -757,6 +781,7 @@ export function GroupAvailabilityView({
         loading={loading}
         error={error}
         draftRanges={draftRanges}
+        clerkUsers={clerkUsers}
         onRangeCreate={handleRangeCreate}
         onRangeUpdate={handleRangeUpdate}
         onRangeDelete={handleRangeDelete}
