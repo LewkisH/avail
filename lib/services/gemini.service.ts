@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { validateApiKey } from '@/lib/utils/input-validation';
 
 interface ActivityContext {
   startTime: Date;
@@ -37,6 +38,13 @@ export class GeminiService {
       throw new Error('GEMINI_API_KEY environment variable is not set');
     }
 
+    // Validate API key format and security
+    try {
+      validateApiKey(apiKey, 30); // Gemini API keys are typically 39 characters
+    } catch (error: any) {
+      throw new Error(`Invalid GEMINI_API_KEY: ${error.message}`);
+    }
+
     this.client = new GoogleGenerativeAI(apiKey);
     // Use gemini-2.5-flash - stable, fast, and supports up to 1M tokens
     this.model = this.client.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -53,18 +61,70 @@ export class GeminiService {
     count: number,
     context: ActivityContext
   ): Promise<GeneratedActivity[]> {
-    // Ensure client is initialized
-    this.initialize();
+    // Validate input parameters
+    if (count <= 0) {
+      console.warn('GeminiService: Invalid count parameter:', count);
+      return [];
+    }
+
+    if (!context || !context.startTime || !context.endTime) {
+      console.error('GeminiService: Invalid context provided');
+      return [];
+    }
+
+    try {
+      // Ensure client is initialized
+      this.initialize();
+    } catch (error) {
+      console.error('GeminiService: Failed to initialize client:', error);
+      return [];
+    }
 
     try {
       const prompt = this.buildPrompt(count, context);
-      const result = await this.model.generateContent(prompt);
+
+      // Add timeout to prevent hanging requests
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Gemini API request timeout')), 30000);
+      });
+
+      const result = await Promise.race([
+        this.model.generateContent(prompt),
+        timeoutPromise,
+      ]);
+
       const response = result.response;
       const text = response.text();
 
-      return this.parseResponse(text);
-    } catch (error) {
-      console.error('Failed to generate activities with Gemini:', error);
+      if (!text || text.trim().length === 0) {
+        console.error('GeminiService: Received empty response from API');
+        return [];
+      }
+
+      const activities = this.parseResponse(text);
+
+      // Log partial success if we got fewer activities than requested
+      if (activities.length < count) {
+        console.warn(
+          `GeminiService: Generated ${activities.length} activities, requested ${count}. Some activities may have failed validation.`
+        );
+      }
+
+      return activities;
+    } catch (error: any) {
+      // Provide detailed error logging for different error types
+      if (error.message?.includes('timeout')) {
+        console.error('GeminiService: API request timed out after 30 seconds');
+      } else if (error.message?.includes('API key')) {
+        console.error('GeminiService: Invalid or missing API key');
+      } else if (error.message?.includes('quota')) {
+        console.error('GeminiService: API quota exceeded');
+      } else if (error.message?.includes('rate limit')) {
+        console.error('GeminiService: Rate limit exceeded');
+      } else {
+        console.error('GeminiService: Failed to generate activities:', error);
+      }
+
       return [];
     }
   }
@@ -142,16 +202,44 @@ Return ONLY a valid JSON array with no additional text:
       // Extract JSON from response (handle markdown code blocks)
       const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        console.error('No JSON array found in Gemini response');
+        console.error('GeminiService: No JSON array found in response. Response preview:', response.substring(0, 200));
         return [];
       }
 
-      const activities = JSON.parse(jsonMatch[0]);
+      let activities;
+      try {
+        activities = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.error('GeminiService: Failed to parse JSON from response:', parseError);
+        console.error('GeminiService: JSON string preview:', jsonMatch[0].substring(0, 200));
+        return [];
+      }
+
+      // Ensure activities is an array
+      if (!Array.isArray(activities)) {
+        console.error('GeminiService: Parsed response is not an array:', typeof activities);
+        return [];
+      }
 
       // Validate and filter activities
-      return activities.filter((activity: any) => this.validateActivity(activity));
+      const validActivities = activities.filter((activity: any, index: number) => {
+        const isValid = this.validateActivity(activity);
+        if (!isValid) {
+          console.warn(`GeminiService: Activity at index ${index} failed validation:`, {
+            title: activity?.title,
+            hasDescription: !!activity?.description,
+            hasLocation: !!activity?.location,
+            hasCategory: !!activity?.category,
+            hasCost: typeof activity?.estimatedCost === 'number',
+            hasReasoning: !!activity?.reasoning,
+          });
+        }
+        return isValid;
+      });
+
+      return validActivities;
     } catch (error) {
-      console.error('Failed to parse Gemini response:', error);
+      console.error('GeminiService: Unexpected error parsing response:', error);
       return [];
     }
   }
@@ -162,18 +250,42 @@ Return ONLY a valid JSON array with no additional text:
    * @returns True if activity is valid
    */
   private static validateActivity(activity: any): boolean {
+    // Check if activity is an object
+    if (!activity || typeof activity !== 'object') {
+      return false;
+    }
+
+    // Validate all required fields exist and have correct types
+    const hasValidTitle = typeof activity.title === 'string' && activity.title.trim().length > 0;
+    const hasValidDescription = typeof activity.description === 'string' && activity.description.trim().length > 0;
+    const hasValidLocation = typeof activity.location === 'string' && activity.location.trim().length > 0;
+    const hasValidCategory = typeof activity.category === 'string' && activity.category.trim().length > 0;
+    const hasValidCost = typeof activity.estimatedCost === 'number' &&
+      !isNaN(activity.estimatedCost) &&
+      activity.estimatedCost >= 0;
+    const hasValidReasoning = typeof activity.reasoning === 'string' && activity.reasoning.trim().length > 0;
+
+    // Additional validation: check for reasonable field lengths
+    const titleTooLong = activity.title && activity.title.length > 200;
+    const descriptionTooLong = activity.description && activity.description.length > 1000;
+    const costTooHigh = activity.estimatedCost > 10000; // Sanity check for cost
+
+    if (titleTooLong || descriptionTooLong || costTooHigh) {
+      console.warn('GeminiService: Activity has unreasonable field values:', {
+        titleLength: activity.title?.length,
+        descriptionLength: activity.description?.length,
+        cost: activity.estimatedCost,
+      });
+      return false;
+    }
+
     return (
-      typeof activity.title === 'string' &&
-      typeof activity.description === 'string' &&
-      typeof activity.location === 'string' &&
-      typeof activity.category === 'string' &&
-      typeof activity.estimatedCost === 'number' &&
-      typeof activity.reasoning === 'string' &&
-      activity.title.length > 0 &&
-      activity.description.length > 0 &&
-      activity.location.length > 0 &&
-      activity.category.length > 0 &&
-      activity.reasoning.length > 0
+      hasValidTitle &&
+      hasValidDescription &&
+      hasValidLocation &&
+      hasValidCategory &&
+      hasValidCost &&
+      hasValidReasoning
     );
   }
 }

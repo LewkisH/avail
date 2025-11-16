@@ -44,8 +44,20 @@ export class ActivitySuggestionService {
     locations: string[]
   ) {
     try {
+      // Validate input parameters
+      if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        console.error('ActivitySuggestionService: Invalid date parameters for external event query');
+        return [];
+      }
+
+      if (startTime >= endTime) {
+        console.error('ActivitySuggestionService: startTime must be before endTime');
+        return [];
+      }
+
       // If no locations provided, return empty array
       if (!locations || locations.length === 0) {
+        console.info('ActivitySuggestionService: No locations provided for external event filtering');
         return [];
       }
 
@@ -65,9 +77,17 @@ export class ActivitySuggestionService {
         take: 6, // Maximum we'd ever need
       });
 
+      console.info(`ActivitySuggestionService: Found ${events.length} overlapping external events`);
       return events;
-    } catch (error) {
-      console.error('Failed to find overlapping external events:', error);
+    } catch (error: any) {
+      // Provide detailed error logging
+      if (error.code === 'P2002') {
+        console.error('ActivitySuggestionService: Database constraint violation in external event query');
+      } else if (error.code === 'P2025') {
+        console.error('ActivitySuggestionService: Record not found in external event query');
+      } else {
+        console.error('ActivitySuggestionService: Failed to find overlapping external events:', error);
+      }
       return [];
     }
   }
@@ -83,10 +103,36 @@ export class ActivitySuggestionService {
     groupId: string,
     externalEvents: Awaited<ReturnType<typeof this.findOverlappingExternalEvents>>
   ) {
+    // Validate input
+    if (!groupId || typeof groupId !== 'string') {
+      console.error('ActivitySuggestionService: Invalid groupId provided');
+      return [];
+    }
+
+    if (!externalEvents || !Array.isArray(externalEvents)) {
+      console.error('ActivitySuggestionService: Invalid externalEvents array');
+      return [];
+    }
+
     const suggestions = [];
+    let successCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
 
     for (const event of externalEvents) {
       try {
+        // Validate event data before processing
+        if (!event.id || !event.title || !event.startTime || !event.endTime) {
+          console.warn(`ActivitySuggestionService: Skipping invalid external event:`, {
+            id: event.id,
+            hasTitle: !!event.title,
+            hasStartTime: !!event.startTime,
+            hasEndTime: !!event.endTime,
+          });
+          errorCount++;
+          continue;
+        }
+
         // Check if suggestion already exists for this event and group
         const existing = await prisma.activitySuggestion.findFirst({
           where: {
@@ -95,28 +141,46 @@ export class ActivitySuggestionService {
           },
         });
 
-        if (!existing) {
-          // Create new suggestion linked to external event
-          const suggestion = await prisma.activitySuggestion.create({
-            data: {
-              groupId,
-              externalEventId: event.id,
-              title: event.title,
-              description: event.description,
-              category: event.category,
-              startTime: event.startTime,
-              endTime: event.endTime,
-              cost: event.cost,
-              reasoning: 'Real event happening in your area during this time slot',
-            },
-          });
-          suggestions.push(suggestion);
+        if (existing) {
+          duplicateCount++;
+          console.info(`ActivitySuggestionService: Suggestion already exists for external event ${event.id}`);
+          continue;
         }
-      } catch (error) {
-        console.error(`Failed to create suggestion from external event ${event.id}:`, error);
+
+        // Create new suggestion linked to external event
+        const suggestion = await prisma.activitySuggestion.create({
+          data: {
+            groupId,
+            externalEventId: event.id,
+            title: event.title,
+            description: event.description,
+            category: event.category,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            cost: event.cost,
+            reasoning: 'Real event happening in your area during this time slot',
+          },
+        });
+        suggestions.push(suggestion);
+        successCount++;
+      } catch (error: any) {
+        errorCount++;
+        // Provide detailed error logging
+        if (error.code === 'P2002') {
+          console.error(`ActivitySuggestionService: Duplicate constraint violation for event ${event.id}`);
+        } else if (error.code === 'P2003') {
+          console.error(`ActivitySuggestionService: Foreign key constraint failed for event ${event.id}`);
+        } else {
+          console.error(`ActivitySuggestionService: Failed to create suggestion from external event ${event.id}:`, error);
+        }
         // Continue with other events even if one fails
       }
     }
+
+    console.info(
+      `ActivitySuggestionService: External event processing complete - ` +
+      `Success: ${successCount}, Duplicates: ${duplicateCount}, Errors: ${errorCount}`
+    );
 
     return suggestions;
   }
@@ -133,41 +197,89 @@ export class ActivitySuggestionService {
     count: number,
     context: ActivityContext
   ) {
+    // Validate input parameters
     if (count <= 0) {
+      console.info('ActivitySuggestionService: No AI activities needed (count <= 0)');
+      return [];
+    }
+
+    if (!groupId || typeof groupId !== 'string') {
+      console.error('ActivitySuggestionService: Invalid groupId for AI generation');
+      return [];
+    }
+
+    if (!context || !context.startTime || !context.endTime) {
+      console.error('ActivitySuggestionService: Invalid context for AI generation');
       return [];
     }
 
     try {
+      console.info(`ActivitySuggestionService: Requesting ${count} AI-generated activities`);
+
       // Call Gemini service to generate activities
       const generatedActivities = await GeminiService.generateActivities(count, context);
 
+      if (!generatedActivities || generatedActivities.length === 0) {
+        console.warn('ActivitySuggestionService: Gemini service returned no activities');
+        return [];
+      }
+
+      console.info(`ActivitySuggestionService: Received ${generatedActivities.length} activities from Gemini`);
+
       // Create activity suggestions from generated activities
       const suggestions = [];
+      let successCount = 0;
+      let errorCount = 0;
 
       for (const activity of generatedActivities) {
         try {
+          // Additional validation before database insertion
+          if (!activity.title || !activity.description || !activity.category) {
+            console.warn('ActivitySuggestionService: Skipping invalid AI activity:', {
+              hasTitle: !!activity.title,
+              hasDescription: !!activity.description,
+              hasCategory: !!activity.category,
+            });
+            errorCount++;
+            continue;
+          }
+
           const suggestion = await prisma.activitySuggestion.create({
             data: {
               groupId,
-              title: activity.title,
-              description: activity.description,
-              category: activity.category,
+              title: activity.title.trim(),
+              description: activity.description.trim(),
+              category: activity.category.trim(),
               startTime: context.startTime,
               endTime: context.endTime,
               cost: activity.estimatedCost,
-              reasoning: activity.reasoning,
+              reasoning: activity.reasoning.trim(),
             },
           });
           suggestions.push(suggestion);
-        } catch (error) {
-          console.error('Failed to create AI activity suggestion:', error);
+          successCount++;
+        } catch (error: any) {
+          errorCount++;
+          // Provide detailed error logging
+          if (error.code === 'P2002') {
+            console.error('ActivitySuggestionService: Duplicate AI activity suggestion');
+          } else if (error.code === 'P2003') {
+            console.error('ActivitySuggestionService: Foreign key constraint failed for AI activity');
+          } else {
+            console.error('ActivitySuggestionService: Failed to create AI activity suggestion:', error);
+          }
           // Continue with other activities even if one fails
         }
       }
 
+      console.info(
+        `ActivitySuggestionService: AI activity creation complete - ` +
+        `Success: ${successCount}, Errors: ${errorCount}`
+      );
+
       return suggestions;
     } catch (error) {
-      console.error('Failed to generate AI activities:', error);
+      console.error('ActivitySuggestionService: Unexpected error in AI activity generation:', error);
       return [];
     }
   }
@@ -185,6 +297,22 @@ export class ActivitySuggestionService {
     endTime: Date
   ): Promise<number> {
     try {
+      // Validate input parameters
+      if (!groupId || typeof groupId !== 'string') {
+        console.error('ActivitySuggestionService: Invalid groupId for suggestion count');
+        return 0;
+      }
+
+      if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        console.error('ActivitySuggestionService: Invalid date parameters for suggestion count');
+        return 0;
+      }
+
+      if (startTime >= endTime) {
+        console.error('ActivitySuggestionService: startTime must be before endTime');
+        return 0;
+      }
+
       const count = await prisma.activitySuggestion.count({
         where: {
           groupId,
@@ -195,9 +323,15 @@ export class ActivitySuggestionService {
           ],
         },
       });
+
+      console.info(`ActivitySuggestionService: Found ${count} existing suggestions for time slot`);
       return count;
-    } catch (error) {
-      console.error('Failed to get suggestion count:', error);
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        console.error('ActivitySuggestionService: Record not found in suggestion count query');
+      } else {
+        console.error('ActivitySuggestionService: Failed to get suggestion count:', error);
+      }
       return 0;
     }
   }
@@ -251,6 +385,27 @@ export class ActivitySuggestionService {
   ): Promise<GenerateSuggestionsResult> {
     const { groupId, startTime, endTime } = params;
 
+    // Validate input parameters
+    if (!groupId || typeof groupId !== 'string') {
+      const error = new Error('Invalid groupId parameter');
+      console.error('ActivitySuggestionService:', error.message);
+      throw error;
+    }
+
+    if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      const error = new Error('Invalid date parameters');
+      console.error('ActivitySuggestionService:', error.message);
+      throw error;
+    }
+
+    if (startTime >= endTime) {
+      const error = new Error('startTime must be before endTime');
+      console.error('ActivitySuggestionService:', error.message);
+      throw error;
+    }
+
+    console.info(`ActivitySuggestionService: Starting suggestion generation for group ${groupId}`);
+
     try {
       // Get current suggestion count
       const currentCount = await this.getSuggestionCount(groupId, startTime, endTime);
@@ -260,6 +415,7 @@ export class ActivitySuggestionService {
       const neededCount = Math.max(0, targetCount - currentCount);
 
       if (neededCount === 0) {
+        console.info('ActivitySuggestionService: Target suggestion count already reached');
         return {
           created: 0,
           fromExternalEvents: 0,
@@ -268,24 +424,44 @@ export class ActivitySuggestionService {
         };
       }
 
+      console.info(`ActivitySuggestionService: Need to create ${neededCount} suggestions`);
+
       // Get group members with their locations and interests
-      const groupMembers = await prisma.user.findMany({
-        where: {
-          groupMemberships: {
-            some: {
-              groupId,
+      let groupMembers;
+      try {
+        groupMembers = await prisma.user.findMany({
+          where: {
+            groupMemberships: {
+              some: {
+                groupId,
+              },
             },
           },
-        },
-        include: {
-          interests: true,
-        },
-      });
+          include: {
+            interests: true,
+          },
+        });
+
+        if (!groupMembers || groupMembers.length === 0) {
+          console.warn('ActivitySuggestionService: No group members found');
+          return {
+            created: 0,
+            fromExternalEvents: 0,
+            fromAI: 0,
+            total: currentCount,
+          };
+        }
+
+        console.info(`ActivitySuggestionService: Found ${groupMembers.length} group members`);
+      } catch (error) {
+        console.error('ActivitySuggestionService: Failed to fetch group members:', error);
+        throw new Error('Failed to fetch group members');
+      }
 
       // Extract locations for external event filtering (location is an enum but treated as string)
       const locations = [...new Set(groupMembers.map((m) => m.location).filter(Boolean) as string[])];
 
-      // Find overlapping external events
+      // Find overlapping external events (gracefully handles failures)
       const externalEvents = await this.findOverlappingExternalEvents(
         startTime,
         endTime,
@@ -293,6 +469,7 @@ export class ActivitySuggestionService {
       );
 
       // Create suggestions from external events (up to needed count)
+      // This method handles partial failures gracefully
       const externalEventSuggestions = await this.createSuggestionsFromExternalEvents(
         groupId,
         externalEvents.slice(0, neededCount)
@@ -302,23 +479,39 @@ export class ActivitySuggestionService {
       const remainingNeeded = neededCount - externalEventSuggestions.length;
 
       // Generate AI activities for remaining slots
+      // This method handles failures gracefully and returns empty array on error
       let aiSuggestions: ActivitySuggestion[] = [];
       if (remainingNeeded > 0) {
-        const context = this.calculateContext(startTime, endTime, groupMembers);
-        aiSuggestions = await this.generateAIActivities(groupId, remainingNeeded, context);
+        try {
+          const context = this.calculateContext(startTime, endTime, groupMembers);
+          aiSuggestions = await this.generateAIActivities(groupId, remainingNeeded, context);
+        } catch (error) {
+          console.error('ActivitySuggestionService: Failed to generate AI activities, continuing with partial results:', error);
+          // Continue with partial success - external events may have been created
+        }
       }
 
-      // Return summary
+      // Return summary (partial success is acceptable)
       const totalCreated = externalEventSuggestions.length + aiSuggestions.length;
+
+      console.info(
+        `ActivitySuggestionService: Generation complete - ` +
+        `Created: ${totalCreated} (${externalEventSuggestions.length} external, ${aiSuggestions.length} AI), ` +
+        `Total: ${currentCount + totalCreated}`
+      );
+
       return {
         created: totalCreated,
         fromExternalEvents: externalEventSuggestions.length,
         fromAI: aiSuggestions.length,
         total: currentCount + totalCreated,
       };
-    } catch (error) {
-      console.error('Failed to generate suggestions:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('ActivitySuggestionService: Critical error in suggestion generation:', error);
+
+      // Provide more context in the error message
+      const errorMessage = error.message || 'Unknown error occurred';
+      throw new Error(`Failed to generate suggestions: ${errorMessage}`);
     }
   }
 }

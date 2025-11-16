@@ -96,7 +96,7 @@
     - Ensure button hides after reaching 6 suggestions
     - _Requirements: 5.5_
 
-- [ ] 6. Add error handling and edge cases
+- [x] 6. Add error handling and edge cases
   - Handle Gemini API failures gracefully without blocking
   - Handle external event query failures
   - Validate all generated activity data before storing
@@ -104,7 +104,7 @@
   - Handle partial success scenarios (some suggestions created)
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 7. Add rate limiting and security measures
+- [x] 7. Add rate limiting and security measures
   - Implement rate limiting on generation endpoint
   - Add input validation and sanitization
   - Verify API key is properly secured in environment
