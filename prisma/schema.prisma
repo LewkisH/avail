@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,25 +8,22 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Core Models
-
 model User {
-  id        String   @id // Clerk user ID
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  interests                  UserInterest[]
-  budget                     UserBudget?
-  sleepTime                  UserSleepTime?
-  ownedGroups                Group[]                        @relation("GroupOwner")
-  groupMemberships           GroupMember[]
-  sentInvitations            GroupInvitation[]              @relation("InvitationSender")
+  id                         String                         @id
+  email                      String                         @unique
+  name                       String
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
+  location                   Location?
   calendarEvents             CalendarEvent[]
   googleToken                GoogleCalendarToken?
+  ownedGroups                Group[]                        @relation("GroupOwner")
   availabilityParticipations GroupAvailabilityParticipant[]
+  sentInvitations            GroupInvitation[]              @relation("InvitationSender")
+  groupMemberships           GroupMember[]
+  budget                     UserBudget?
+  interests                  UserInterest[]
+  sleepTime                  UserSleepTime?
 }
 
 model UserInterest {
@@ -37,8 +31,7 @@ model UserInterest {
   userId    String
   interest  String
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -50,32 +43,29 @@ model UserBudget {
   maxBudget Decimal  @db.Decimal(10, 2)
   currency  String   @default("EUR")
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserSleepTime {
   id        String   @id @default(uuid())
   userId    String   @unique
-  startTime String // Format: "HH:MM" in UTC (e.g., "22:00")
-  endTime   String // Format: "HH:MM" in UTC (e.g., "08:00")
+  startTime String
+  endTime   String
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Group {
-  id        String   @id @default(uuid())
-  name      String
-  ownerId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  owner               User                 @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members             GroupMember[]
-  invitations         GroupInvitation[]
+  id                  String               @id @default(uuid())
+  name                String
+  ownerId             String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   activitySuggestions ActivitySuggestion[]
+  owner               User                 @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   availabilities      GroupAvailability[]
+  invitations         GroupInvitation[]
+  members             GroupMember[]
 
   @@index([ownerId])
 }
@@ -85,19 +75,12 @@ model GroupMember {
   groupId  String
   userId   String
   joinedAt DateTime @default(now())
-
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@index([groupId])
   @@index([userId])
-}
-
-enum InvitationStatus {
-  pending
-  accepted
-  declined
 }
 
 model GroupInvitation {
@@ -109,27 +92,18 @@ model GroupInvitation {
   token        String           @unique @default(uuid())
   createdAt    DateTime         @default(now())
   expiresAt    DateTime
-
-  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  inviter User  @relation("InvitationSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+  group        Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviter      User             @relation("InvitationSender", fields: [invitedBy], references: [id], onDelete: Cascade)
 
   @@index([groupId])
   @@index([token])
-}
-
-// Calendar and Event Models
-
-enum EventSource {
-  google
-  ics
-  manual
 }
 
 model CalendarEvent {
   id          String      @id @default(uuid())
   userId      String
   title       String
-  description String?     @db.Text
+  description String?
   startTime   DateTime
   endTime     DateTime
   timezone    String
@@ -138,8 +112,7 @@ model CalendarEvent {
   sourceId    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startTime])
   @@index([userId])
@@ -148,33 +121,31 @@ model CalendarEvent {
 model GoogleCalendarToken {
   id           String   @id @default(uuid())
   userId       String   @unique
-  accessToken  String   @db.Text
-  refreshToken String   @db.Text
+  accessToken  String
+  refreshToken String
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ExternalEvent {
-  id          String   @id @default(uuid())
-  title       String
-  description String   @db.Text
-  startTime   DateTime
-  endTime     DateTime
-  timezone    String
-  location    String?
-  cost        Decimal? @db.Decimal(10, 2)
-  currency    String   @default("EUR")
-  category    String
-  sourceApi   String
-  sourceId    String
-  sourceUrl   String
-  imageUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id                  String               @id @default(uuid())
+  title               String
+  description         String
+  startTime           DateTime
+  endTime             DateTime
+  timezone            String
+  location            String?
+  cost                Decimal?             @db.Decimal(10, 2)
+  currency            String               @default("EUR")
+  category            String
+  sourceApi           String
+  sourceId            String
+  sourceUrl           String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  imageUrl            String?
   activitySuggestions ActivitySuggestion[]
 
   @@unique([sourceApi, sourceId])
@@ -183,34 +154,46 @@ model ExternalEvent {
 }
 
 model ActivitySuggestion {
-  id              String   @id @default(uuid())
+  id              String               @id @default(uuid())
   groupId         String
   externalEventId String?
   title           String
-  description     String   @db.Text
-  suggestedTime   DateTime
-  cost            Decimal? @db.Decimal(10, 2)
-  reasoning       String   @db.Text
-  createdAt       DateTime @default(now())
-
-  group         Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  externalEvent ExternalEvent? @relation(fields: [externalEventId], references: [id], onDelete: SetNull)
+  description     String
+  cost            Decimal?             @db.Decimal(10, 2)
+  reasoning       String
+  createdAt       DateTime             @default(now())
+  category        String?
+  endTime         DateTime
+  location        String?
+  startTime       DateTime
+  externalEvent   ExternalEvent?       @relation(fields: [externalEventId], references: [id])
+  group           Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  interests       GroupEventInterest[]
 
   @@index([groupId])
-  @@index([suggestedTime])
+  @@index([startTime])
 }
 
-// Group Availability Models
+model GroupEventInterest {
+  id                   String             @id @default(uuid())
+  activitySuggestionId String
+  userId               String
+  createdAt            DateTime           @default(now())
+  activitySuggestion   ActivitySuggestion @relation(fields: [activitySuggestionId], references: [id], onDelete: Cascade)
+
+  @@unique([activitySuggestionId, userId])
+  @@index([activitySuggestionId])
+  @@index([userId])
+}
 
 model GroupAvailability {
-  id        String   @id @default(uuid())
-  groupId   String
-  date      DateTime @db.Date
-  startTime DateTime
-  endTime   DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id           String                         @id @default(uuid())
+  groupId      String
+  date         DateTime                       @db.Date
+  startTime    DateTime
+  endTime      DateTime
+  createdAt    DateTime                       @default(now())
+  updatedAt    DateTime                       @updatedAt
   group        Group                          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   participants GroupAvailabilityParticipant[]
 
@@ -219,14 +202,30 @@ model GroupAvailability {
 }
 
 model GroupAvailabilityParticipant {
-  id                  String @id @default(uuid())
+  id                  String            @id @default(uuid())
   groupAvailabilityId String
   userId              String
-
-  groupAvailability GroupAvailability @relation(fields: [groupAvailabilityId], references: [id], onDelete: Cascade)
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupAvailability   GroupAvailability @relation(fields: [groupAvailabilityId], references: [id], onDelete: Cascade)
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupAvailabilityId, userId])
   @@index([groupAvailabilityId])
   @@index([userId])
+}
+
+enum Location {
+  Tartu
+  Tallinn
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  declined
+}
+
+enum EventSource {
+  google
+  ics
+  manual
 }

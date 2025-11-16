@@ -12,6 +12,7 @@ import type { UnavailabilityRange, TimeSlot } from '@/lib/utils/unavailability-g
 interface GroupAvailabilityViewProps {
   groupIds: string[];
   initialDate?: Date;
+  userId: string;
 }
 
 interface AvailabilityWindow {
@@ -129,7 +130,7 @@ function useGroupsAvailability(groupIds: string[], date: Date) {
 
                 throw new Error(
                   errorData.error?.message ||
-                    `Failed to fetch availability for group ${groupId}`
+                  `Failed to fetch availability for group ${groupId}`
                 );
               }
 
@@ -268,7 +269,7 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
       const newStart = new Date(prevStart);
       newStart.setDate(
         prevStart.getDate() +
-          (direction === "next" ? visibleDays : -visibleDays)
+        (direction === "next" ? visibleDays : -visibleDays)
       );
       return newStart;
     });
@@ -311,8 +312,8 @@ function DayPicker({ selectedDate, onDateSelect }: DayPickerProps) {
               transition-all shrink-0
               ${
                 isSelected(date)
-                  ? "bg-orange-500 text-white shadow-md"
-                  : "bg-white border border-gray-200 hover:bg-gray-50 hover:shadow-sm"
+              ? "bg-orange-500 text-white shadow-md"
+              : "bg-white border border-gray-200 hover:bg-gray-50 hover:shadow-sm"
               }
             `}
           >
@@ -539,6 +540,7 @@ function TimeSlotsList({
 export function GroupAvailabilityView({
   groupIds,
   initialDate,
+  userId,
 }: GroupAvailabilityViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const date = initialDate || new Date();
@@ -676,8 +678,7 @@ export function GroupAvailabilityView({
       refresh();
 
       toast.success(
-        `Successfully saved ${allRanges.length} unavailable ${
-          allRanges.length === 1 ? "period" : "periods"
+        `Successfully saved ${allRanges.length} unavailable ${allRanges.length === 1 ? "period" : "periods"
         }`
       );
     } catch (err) {
@@ -769,18 +770,19 @@ export function GroupAvailabilityView({
         timeSlot={
           selectedTimeSlot
             ? {
-                id: selectedTimeSlot.id,
-                title: `${selectedTimeSlot.groupName} - Available Time`,
-                startTime: new Date(selectedTimeSlot.startTime),
-                endTime: new Date(selectedTimeSlot.endTime),
-                description: `${selectedTimeSlot.participants.length} ${
-                  selectedTimeSlot.participants.length === 1
-                    ? "member"
-                    : "members"
+              id: selectedTimeSlot.id,
+              title: `${selectedTimeSlot.groupName} - Available Time`,
+              startTime: new Date(selectedTimeSlot.startTime),
+              endTime: new Date(selectedTimeSlot.endTime),
+              description: `${selectedTimeSlot.participants.length} ${selectedTimeSlot.participants.length === 1
+                ? "member"
+                : "members"
                 } available`,
-              }
+            }
             : null
         }
+        groupId={selectedTimeSlot?.groupId || ''}
+        userId={userId}
       />
     </div>
   );

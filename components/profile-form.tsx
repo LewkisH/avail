@@ -41,6 +41,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string;
+  location: "Tartu" | "Tallinn" | null;
   interests: string[];
   budget: {
     min: number;
@@ -61,6 +62,8 @@ export function ProfileForm() {
   const [savingInterests, setSavingInterests] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
   const [savingSleepTime, setSavingSleepTime] = useState(false);
+  const [location, setLocation] = useState<"Tartu" | "Tallinn" | null>(null);
+  const [savingLocation, setSavingLocation] = useState(false);
 
   const budgetForm = useForm<BudgetFormData>({
     resolver: zodResolver(budgetSchema),
@@ -93,6 +96,7 @@ export function ProfileForm() {
       const data = await response.json();
       setProfile(data);
       setInterests(data.interests || []);
+      setLocation(data.location || null);
       
       if (data.budget) {
         budgetForm.reset({
@@ -242,6 +246,33 @@ export function ProfileForm() {
       toast.error(error instanceof Error ? error.message : 'Failed to update sleep time');
     } finally {
       setSavingSleepTime(false);
+    }
+  };
+
+  const handleSaveLocation = async () => {
+    setSavingLocation(true);
+    try {
+      const response = await fetch("/api/user/location", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to update location");
+      }
+
+      const updatedProfile = await response.json();
+      setProfile(updatedProfile);
+      toast.success("Location updated successfully");
+    } catch (error) {
+      console.error("Error updating location:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update location"
+      );
+    } finally {
+      setSavingLocation(false);
     }
   };
 
@@ -444,6 +475,51 @@ export function ProfileForm() {
               {savingSleepTime ? "Saving..." : "Save Sleep Time"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Location Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Location</CardTitle>
+          <CardDescription>Select your primary location</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Label>Choose Location</Label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="location"
+                  value="Tartu"
+                  checked={location === "Tartu"}
+                  onChange={(e) => setLocation(e.target.value as "Tartu")}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">Tartu</span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="location"
+                  value="Tallinn"
+                  checked={location === "Tallinn"}
+                  onChange={(e) => setLocation(e.target.value as "Tallinn")}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <span className="text-sm">Tallinn</span>
+              </label>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSaveLocation}
+            disabled={savingLocation}
+            className="w-full"
+          >
+            {savingLocation ? "Saving..." : "Save Location"}
+          </Button>
         </CardContent>
       </Card>
     </div>

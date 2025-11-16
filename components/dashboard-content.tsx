@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { GroupAvailabilityView } from '@/components/groups/group-availability-view';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users } from 'lucide-react';
@@ -16,6 +17,7 @@ interface Group {
 }
 
 export function DashboardContent() {
+  const { user } = useUser();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +39,7 @@ export function DashboardContent() {
     fetchGroups();
   }, []);
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="space-y-6">
         <div>
@@ -75,7 +77,10 @@ export function DashboardContent() {
       ) : (
         <Card>
           <CardContent className="p-6">
-            <GroupAvailabilityView groupIds={groups.map(g => g.id)} />
+              <GroupAvailabilityView
+                groupIds={groups.map(g => g.id)}
+                userId={user.id}
+              />
           </CardContent>
         </Card>
       )}

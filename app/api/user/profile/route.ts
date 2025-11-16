@@ -26,6 +26,7 @@ export async function GET() {
     id: user.id,
     email: user.email,
     name: user.name,
+    location: user.location,
     interests: user.interests.map((i) => i.interest),
     budget: user.budget
       ? {

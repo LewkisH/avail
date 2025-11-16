@@ -1,60 +1,142 @@
 'use client';
 
-import { Calendar, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { format, isToday, isTomorrow } from 'date-fns';
 
-interface Event {
+interface EventParticipant {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
+interface GroupEvent {
   id: string;
   title: string;
+  location?: string;
   startTime: Date;
   endTime: Date;
-  description?: string;
+  category: string;
+  imageUrl?: string | null;
+  participants: EventParticipant[];
+  hasJoined?: boolean;
 }
 
 interface TimeSlotEventsSectionProps {
-  events: Event[];
+  events: GroupEvent[];
+  onJoinEvent?: (eventId: string) => Promise<void>;
 }
 
-export function TimeSlotEventsSection({ events }: TimeSlotEventsSectionProps) {
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSectionProps) {
+  const [joiningEventId, setJoiningEventId] = useState<string | null>(null);
+  const formatEventTime = (startTime: Date, endTime: Date) => {
+    const formatTime = (date: Date) => format(date, 'HH:mm');
+
+    if (isToday(startTime)) {
+      return `Today ${formatTime(startTime)}-${formatTime(endTime)}`;
+    } else if (isTomorrow(startTime)) {
+      return `Tomorrow ${formatTime(startTime)}-${formatTime(endTime)}`;
+    } else {
+      return `${format(startTime, 'd MMM')} ${formatTime(startTime)}-${formatTime(endTime)}`;
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (events.length === 0) {
     return (
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          Events
-        </h3>
         <p className="text-sm text-muted-foreground">No events scheduled</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold flex items-center gap-2">
-        <Calendar className="h-4 w-4" />
-        Events ({events.length})
-      </h3>
-      <div className="space-y-2">
-        {events.map((event) => (
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {events.slice(0, 6).map((event) => (
           <div
             key={event.id}
-            className="rounded-lg border p-3 space-y-1 hover:bg-accent/50 transition-colors"
+            className="relative px-4 py-5 rounded-2xl flex flex-col gap-3 border overflow-hidden"
+            style={{
+              background: event.imageUrl
+                ? `linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.8)), url(${event.imageUrl})`
+                : 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
           >
-            <div className="font-medium text-sm">{event.title}</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              {formatTime(event.startTime)} - {formatTime(event.endTime)}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center">
+                <div className="px-2 py-1.5 bg-neutral-800/50 rounded-xl backdrop-blur-[3px] flex items-center">
+                  <div className="text-neutral-200 text-sm font-normal leading-5">
+                    {event.category}
+                  </div>
+                </div>
+              </div>
+              <div className="text-white text-base font-semibold leading-5">
+                {event.title}
+                {event.location && (
+                  <span className="block text-sm font-normal text-neutral-300 mt-1">
+                    @ {event.location}
+                  </span>
+                )}
+              </div>
             </div>
-            {event.description && (
-              <p className="text-xs text-muted-foreground">{event.description}</p>
-            )}
+
+            <div className="text-neutral-200 text-sm font-medium leading-5">
+              {formatEventTime(event.startTime, event.endTime)}
+            </div>
+
+            <div className="flex flex-col gap-3 mt-auto">
+              <div className="h-7 flex items-center -space-x-2">
+                {event.participants.slice(0, 3).map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="relative rounded-full ring-2 ring-background overflow-hidden"
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={participant.imageUrl} alt={participant.name} />
+                      <AvatarFallback className="text-xs">
+                        {getInitials(participant.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                ))}
+                {event.participants.length > 3 && (
+                  <div className="relative rounded-full ring-2 ring-background bg-neutral-700 h-7 w-7 flex items-center justify-center">
+                    <span className="text-xs text-neutral-200">
+                      +{event.participants.length - 3}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {onJoinEvent && (
+                <Button
+                  onClick={async () => {
+                    setJoiningEventId(event.id);
+                    try {
+                      await onJoinEvent(event.id);
+                    } finally {
+                      setJoiningEventId(null);
+                    }
+                  }}
+                  disabled={event.hasJoined || joiningEventId === event.id}
+                  className="w-full min-h-8 px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
+                >
+                  {joiningEventId === event.id ? 'Joining...' : event.hasJoined ? 'Joined' : 'Join'}
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </div>
