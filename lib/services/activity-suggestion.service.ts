@@ -19,10 +19,16 @@ interface ActivityContext {
   startTime: Date;
   endTime: Date;
   locations: string[];
-  interests: string[];
+  interests: string[]; // Keep for backward compatibility
   memberCount: number;
   season: string;
   timeOfDay: string;
+  // New fields for personalization
+  userInterests: Array<{
+    userName: string;
+    interests: string[];
+  }>;
+  hasAnyInterests: boolean;
 }
 
 type UserWithInterests = Prisma.UserGetPayload<{
@@ -214,10 +220,12 @@ export class ActivitySuggestionService {
     }
 
     try {
-      console.info(`ActivitySuggestionService: Requesting ${count} AI-generated activities`);
+      // Task 4.1: Calculate requestCount - add 1 if no users have interests (for interest prompt)
+      const requestCount = context.hasAnyInterests ? count : count + 1;
+      console.info(`ActivitySuggestionService: Requesting ${requestCount} AI-generated activities (hasAnyInterests: ${context.hasAnyInterests})`);
 
-      // Call Gemini service to generate activities
-      const generatedActivities = await GeminiService.generateActivities(count, context);
+      // Task 4.1: Pass enhanced context to GeminiService.generateActivities
+      const generatedActivities = await GeminiService.generateActivities(requestCount, context);
 
       if (!generatedActivities || generatedActivities.length === 0) {
         console.warn('ActivitySuggestionService: Gemini service returned no activities');
@@ -244,14 +252,150 @@ export class ActivitySuggestionService {
             continue;
           }
 
+          // Task 4.2 & Task 6: Parse startTime and endTime from generated activities with comprehensive validation
+          let activityStartTime: Date;
+          let activityEndTime: Date;
+          let usedFallback = false;
+
+          try {
+            // Task 6: Validate time parsing and provide fallbacks
+            // Check if time strings are provided
+            if (!activity.startTime || typeof activity.startTime !== 'string') {
+              console.warn('ActivitySuggestionService: Missing or invalid startTime, using slot time as fallback:', {
+                activityTitle: activity.title,
+                startTime: activity.startTime,
+                startTimeType: typeof activity.startTime,
+              });
+              activityStartTime = context.startTime;
+              usedFallback = true;
+            } else {
+              // Task 4.2: Convert ISO strings to Date objects
+              activityStartTime = new Date(activity.startTime);
+
+              // Validate the parsed date is valid
+              if (isNaN(activityStartTime.getTime())) {
+                console.warn('ActivitySuggestionService: Invalid startTime format, using slot time as fallback:', {
+                  activityTitle: activity.title,
+                  startTime: activity.startTime,
+                });
+                activityStartTime = context.startTime;
+                usedFallback = true;
+              }
+            }
+
+            if (!activity.endTime || typeof activity.endTime !== 'string') {
+              console.warn('ActivitySuggestionService: Missing or invalid endTime, using slot time as fallback:', {
+                activityTitle: activity.title,
+                endTime: activity.endTime,
+                endTimeType: typeof activity.endTime,
+              });
+              activityEndTime = context.endTime;
+              usedFallback = true;
+            } else {
+              // Task 4.2: Convert ISO strings to Date objects
+              activityEndTime = new Date(activity.endTime);
+
+              // Validate the parsed date is valid
+              if (isNaN(activityEndTime.getTime())) {
+                console.warn('ActivitySuggestionService: Invalid endTime format, using slot time as fallback:', {
+                  activityTitle: activity.title,
+                  endTime: activity.endTime,
+                });
+                activityEndTime = context.endTime;
+                usedFallback = true;
+              }
+            }
+
+            // Task 4.2: Validate times are within original slot boundaries
+            if (!usedFallback) {
+              const startOutOfBounds = activityStartTime < context.startTime || activityStartTime > context.endTime;
+              const endOutOfBounds = activityEndTime < context.startTime || activityEndTime > context.endTime;
+
+              if (startOutOfBounds || endOutOfBounds) {
+                console.warn('ActivitySuggestionService: Activity times outside slot boundaries, using slot times as fallback:', {
+                  activityTitle: activity.title,
+                  activityStart: activity.startTime,
+                  activityEnd: activity.endTime,
+                  slotStart: context.startTime.toISOString(),
+                  slotEnd: context.endTime.toISOString(),
+                  startOutOfBounds,
+                  endOutOfBounds,
+                });
+                // Fallback to slot times if outside boundaries
+                activityStartTime = context.startTime;
+                activityEndTime = context.endTime;
+                usedFallback = true;
+              }
+            }
+
+            // Additional validation: ensure start is before end
+            if (!usedFallback && activityStartTime >= activityEndTime) {
+              console.warn('ActivitySuggestionService: Invalid time range (start >= end), using slot times as fallback:', {
+                activityTitle: activity.title,
+                activityStart: activity.startTime,
+                activityEnd: activity.endTime,
+              });
+              activityStartTime = context.startTime;
+              activityEndTime = context.endTime;
+              usedFallback = true;
+            }
+
+            // Task 6: Validate time parsing - check for unreasonably short or long durations
+            if (!usedFallback) {
+              const durationMs = activityEndTime.getTime() - activityStartTime.getTime();
+              const durationHours = durationMs / (1000 * 60 * 60);
+
+              // Warn if duration is less than 30 minutes or more than 12 hours
+              if (durationHours < 0.5) {
+                console.warn('ActivitySuggestionService: Activity duration too short (< 30 min), using slot times as fallback:', {
+                  activityTitle: activity.title,
+                  durationHours: durationHours.toFixed(2),
+                });
+                activityStartTime = context.startTime;
+                activityEndTime = context.endTime;
+                usedFallback = true;
+              } else if (durationHours > 12) {
+                console.warn('ActivitySuggestionService: Activity duration too long (> 12 hours), using slot times as fallback:', {
+                  activityTitle: activity.title,
+                  durationHours: durationHours.toFixed(2),
+                });
+                activityStartTime = context.startTime;
+                activityEndTime = context.endTime;
+                usedFallback = true;
+              }
+            }
+          } catch (timeError) {
+            console.warn('ActivitySuggestionService: Unexpected error parsing activity times, using slot times as fallback:', {
+              activityTitle: activity.title,
+              error: timeError instanceof Error ? timeError.message : String(timeError),
+            });
+            // Fallback to slot times if parsing fails
+            activityStartTime = context.startTime;
+            activityEndTime = context.endTime;
+            usedFallback = true;
+          }
+
+          // Log successful time parsing
+          if (!usedFallback) {
+            const durationMs = activityEndTime.getTime() - activityStartTime.getTime();
+            const durationHours = durationMs / (1000 * 60 * 60);
+            console.info('ActivitySuggestionService: Successfully parsed realistic activity times:', {
+              activityTitle: activity.title,
+              startTime: activityStartTime.toISOString(),
+              endTime: activityEndTime.toISOString(),
+              durationHours: durationHours.toFixed(2),
+            });
+          }
+
+          // Task 4.2: Store parsed times in ActivitySuggestion records instead of slot times
           const suggestion = await prisma.activitySuggestion.create({
             data: {
               groupId,
               title: activity.title.trim(),
               description: activity.description.trim(),
               category: activity.category.trim(),
-              startTime: context.startTime,
-              endTime: context.endTime,
+              startTime: activityStartTime,
+              endTime: activityEndTime,
               cost: activity.estimatedCost,
               reasoning: activity.reasoning.trim(),
             },
@@ -282,6 +426,28 @@ export class ActivitySuggestionService {
       console.error('ActivitySuggestionService: Unexpected error in AI activity generation:', error);
       return [];
     }
+  }
+
+  /**
+   * Sort suggestions to prioritize external events over AI-generated ones
+   * External events are always shown first
+   * @param suggestions Array of activity suggestions
+   * @returns Sorted array with external events first
+   */
+  private static sortSuggestionsByPriority(
+    suggestions: ActivitySuggestion[]
+  ): ActivitySuggestion[] {
+    return suggestions.sort((a, b) => {
+      // External events (have externalEventId) come first
+      const aIsExternal = !!a.externalEventId;
+      const bIsExternal = !!b.externalEventId;
+
+      if (aIsExternal && !bIsExternal) return -1;
+      if (!aIsExternal && bIsExternal) return 1;
+
+      // Within same type, sort by creation time (most recent first)
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
   }
 
   /**
@@ -348,11 +514,22 @@ export class ActivitySuggestionService {
     endTime: Date,
     groupMembers: UserWithInterests[]
   ): ActivityContext {
+    // Task 6: Handle missing user names gracefully
     // Extract unique locations (location is an enum but treated as string)
     const locations = [...new Set(groupMembers.map((m) => m.location).filter(Boolean) as string[])];
 
-    // Extract all interests
-    const interests = groupMembers.flatMap((m) => m.interests.map((i) => i.interest));
+    // Task 6: Handle empty interests arrays without errors
+    // Extract all interests (keep for backward compatibility)
+    const interests = groupMembers.flatMap((m) => {
+      if (!m.interests || !Array.isArray(m.interests)) {
+        console.warn('ActivitySuggestionService: User has invalid interests array:', {
+          userId: m.id,
+          userName: m.name,
+        });
+        return [];
+      }
+      return m.interests.map((i) => i.interest);
+    });
 
     // Calculate time of day
     const hour = startTime.getHours();
@@ -363,14 +540,81 @@ export class ActivitySuggestionService {
     const month = startTime.getMonth();
     const season = month < 3 ? 'winter' : month < 6 ? 'spring' : month < 9 ? 'summer' : 'autumn';
 
+    // Task 6: Handle missing user names gracefully in context calculation
+    // Build user-interest mapping with user names for personalization
+    const userInterests = groupMembers
+      .filter((m) => {
+        // Task 6: Log warnings for invalid personalization data
+        if (!m.name || typeof m.name !== 'string' || m.name.trim().length === 0) {
+          console.warn('ActivitySuggestionService: Skipping user with missing or invalid name for personalization:', {
+            userId: m.id,
+            hasName: !!m.name,
+            nameType: typeof m.name,
+          });
+          return false;
+        }
+        return true;
+      })
+      .map((m) => {
+        // Task 6: Handle empty interests arrays without errors
+        let userInterestsList: string[] = [];
+
+        if (!m.interests || !Array.isArray(m.interests)) {
+          console.warn('ActivitySuggestionService: User has invalid interests array, using empty array:', {
+            userId: m.id,
+            userName: m.name,
+          });
+        } else {
+          userInterestsList = m.interests
+            .filter((i) => {
+              // Validate each interest has the required field
+              if (!i || !i.interest || typeof i.interest !== 'string') {
+                console.warn('ActivitySuggestionService: Invalid interest entry for user:', {
+                  userId: m.id,
+                  userName: m.name,
+                  interest: i,
+                });
+                return false;
+              }
+              return true;
+            })
+            .map((i) => i.interest);
+        }
+
+        return {
+          userName: m.name!,
+          interests: userInterestsList,
+        };
+      });
+
+    // Determine if any group members have interests configured
+    const hasAnyInterests = userInterests.some((ui) => ui.interests.length > 0);
+
+    // Task 6: Log warnings for invalid personalization data
+    const membersWithoutNames = groupMembers.length - userInterests.length;
+    if (membersWithoutNames > 0) {
+      console.warn(
+        `ActivitySuggestionService: ${membersWithoutNames} group member(s) excluded from personalization due to missing names`
+      );
+    }
+
+    if (!hasAnyInterests && userInterests.length > 0) {
+      console.info(
+        'ActivitySuggestionService: No group members have interests configured, interest prompt will be included'
+      );
+    }
+
     return {
       startTime,
       endTime,
       locations,
-      interests,
+      interests, // Keep for backward compatibility
       memberCount: groupMembers.length,
       season,
       timeOfDay,
+      // New fields for personalization
+      userInterests,
+      hasAnyInterests,
     };
   }
 
@@ -512,6 +756,55 @@ export class ActivitySuggestionService {
       // Provide more context in the error message
       const errorMessage = error.message || 'Unknown error occurred';
       throw new Error(`Failed to generate suggestions: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Fetch and sort activity suggestions for a time slot
+   * @param groupId ID of the group
+   * @param startTime Start time of the time slot
+   * @param endTime End time of the time slot
+   * @returns Sorted array of activity suggestions (external events first)
+   */
+  static async getSortedSuggestions(
+    groupId: string,
+    startTime: Date,
+    endTime: Date
+  ): Promise<ActivitySuggestion[]> {
+    try {
+      // Validate input parameters
+      if (!groupId || typeof groupId !== 'string') {
+        console.error('ActivitySuggestionService: Invalid groupId for fetching suggestions');
+        return [];
+      }
+
+      if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        console.error('ActivitySuggestionService: Invalid date parameters for fetching suggestions');
+        return [];
+      }
+
+      if (startTime >= endTime) {
+        console.error('ActivitySuggestionService: startTime must be before endTime');
+        return [];
+      }
+
+      // Fetch all suggestions for the time slot
+      const suggestions = await prisma.activitySuggestion.findMany({
+        where: {
+          groupId,
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      });
+
+      // Sort suggestions with external events first
+      const sortedSuggestions = this.sortSuggestionsByPriority(suggestions);
+
+      console.info(`ActivitySuggestionService: Fetched and sorted ${sortedSuggestions.length} suggestions`);
+      return sortedSuggestions;
+    } catch (error: any) {
+      console.error('ActivitySuggestionService: Failed to fetch sorted suggestions:', error);
+      return [];
     }
   }
 }

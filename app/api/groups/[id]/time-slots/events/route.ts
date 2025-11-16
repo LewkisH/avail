@@ -89,7 +89,7 @@ export async function GET(
     }
 
     // Query activity suggestions that overlap with the time slot
-    const activitySuggestions = await prisma.activitySuggestion.findMany({
+    let activitySuggestions = await prisma.activitySuggestion.findMany({
       where: {
         groupId,
         OR: [
@@ -128,9 +128,18 @@ export async function GET(
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+    });
+
+    // Sort suggestions with external events first
+    activitySuggestions = activitySuggestions.sort((a, b) => {
+      const aIsExternal = !!a.externalEventId;
+      const bIsExternal = !!b.externalEventId;
+
+      if (aIsExternal && !bIsExternal) return -1;
+      if (!aIsExternal && bIsExternal) return 1;
+
+      // Within same type, sort by creation time (most recent first)
+      return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
     // Fetch user data for participants
@@ -221,11 +230,15 @@ export async function GET(
         return {
           id: suggestion.id,
           title: suggestion.title,
+          description: suggestion.description,
           location: suggestion.location,
           category: suggestion.category,
           startTime: suggestion.startTime.toISOString(),
           endTime: suggestion.endTime.toISOString(),
           imageUrl: suggestion.externalEvent?.imageUrl || null,
+          reasoning: suggestion.reasoning,
+          isExternalEvent: !!suggestion.externalEventId,
+          externalEventId: suggestion.externalEventId,
           participants: suggestion.participants.map((participant) => ({
             id: participant.id,
             name: participant.name,

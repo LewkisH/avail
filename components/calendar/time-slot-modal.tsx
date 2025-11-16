@@ -30,10 +30,15 @@ interface EventParticipant {
 interface GroupEvent {
   id: string;
   title: string;
+  description?: string;
   location?: string;
   startTime: Date;
   endTime: Date;
   category: string;
+  imageUrl?: string | null;
+  reasoning?: string;
+  isExternalEvent?: boolean;
+  externalEventId?: string | null;
   participants: EventParticipant[];
   hasJoined?: boolean;
 }

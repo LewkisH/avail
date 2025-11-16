@@ -34,9 +34,10 @@ This feature automatically generates activity suggestions for group time slots. 
 
 1. THE Activity Suggestion Engine SHALL query external events that overlap with the time slot timeframe
 2. THE Activity Suggestion Engine SHALL filter external events by location matching group members' locations
-3. THE Activity Suggestion Engine SHALL prioritize external events over AI-generated activities
+3. THE Activity Suggestion Engine SHALL always prioritize and display external events before AI-generated activities in the results
 4. THE Activity Suggestion Engine SHALL create activity suggestions from external events before generating AI activities
 5. THE Activity Suggestion Engine SHALL link activity suggestions to their source external events
+6. WHEN displaying suggestions, THE Activity Suggestion Engine SHALL sort external events to appear first in the list
 
 ### Requirement 3
 

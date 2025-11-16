@@ -5,10 +5,16 @@ interface ActivityContext {
   startTime: Date;
   endTime: Date;
   locations: string[];
-  interests: string[];
+  interests: string[]; // Keep for backward compatibility
   memberCount: number;
   season: string;
   timeOfDay: string;
+  // New fields for personalization
+  userInterests: Array<{
+    userName: string;
+    interests: string[];
+  }>;
+  hasAnyInterests: boolean;
 }
 
 interface GeneratedActivity {
@@ -18,6 +24,8 @@ interface GeneratedActivity {
   category: string;
   estimatedCost: number;
   reasoning: string;
+  startTime: string; // ISO datetime string
+  endTime: string;   // ISO datetime string
 }
 
 export class GeminiService {
@@ -136,7 +144,7 @@ export class GeminiService {
    * @returns Formatted prompt string
    */
   private static buildPrompt(count: number, context: ActivityContext): string {
-    const { startTime, endTime, locations, interests, memberCount, season, timeOfDay } = context;
+    const { startTime, endTime, locations, memberCount, season, timeOfDay, userInterests, hasAnyInterests } = context;
 
     const formattedStartTime = startTime.toLocaleString('en-US', {
       weekday: 'long',
@@ -152,15 +160,104 @@ export class GeminiService {
       minute: '2-digit',
     });
 
+    // Task 6: Handle empty interests arrays without errors and log warnings for invalid personalization data
+    // Format user interests for the prompt (subtask 2.1)
+    const userInterestsFormatted = userInterests
+      .filter((ui) => {
+        // Validate user interest data
+        if (!ui || typeof ui !== 'object') {
+          console.warn('GeminiService: Invalid user interest object in context:', ui);
+          return false;
+        }
+        if (!ui.userName || typeof ui.userName !== 'string' || ui.userName.trim().length === 0) {
+          console.warn('GeminiService: User interest missing valid userName:', ui);
+          return false;
+        }
+        if (!Array.isArray(ui.interests)) {
+          console.warn('GeminiService: User interest has invalid interests array:', {
+            userName: ui.userName,
+            interests: ui.interests,
+          });
+          return false;
+        }
+        return true;
+      })
+      .map((ui) => {
+        // Sanitize user name to prevent prompt injection
+        const sanitizedUserName = ui.userName.trim().replace(/[<>{}[\]]/g, '');
+
+        // Filter and sanitize interests
+        const sanitizedInterests = ui.interests
+          .filter((interest) => {
+            if (!interest || typeof interest !== 'string' || interest.trim().length === 0) {
+              console.warn('GeminiService: Invalid interest for user:', {
+                userName: sanitizedUserName,
+                interest,
+              });
+              return false;
+            }
+            return true;
+          })
+          .map((interest) => interest.trim().replace(/[<>{}[\]]/g, ''));
+
+        return `- ${sanitizedUserName}: ${sanitizedInterests.length > 0 ? sanitizedInterests.join(', ') : 'No interests specified'}`;
+      })
+      .join('\n');
+
+    // Task 6: Log warning if no valid user interests after filtering
+    if (!userInterestsFormatted || userInterestsFormatted.trim().length === 0) {
+      console.warn('GeminiService: No valid user interests available for personalization after filtering');
+    }
+
+    // Task 6: Validate and sanitize locations array
+    const validLocations = locations
+      .filter((loc) => {
+        if (!loc || typeof loc !== 'string' || loc.trim().length === 0) {
+          console.warn('GeminiService: Invalid location in context:', loc);
+          return false;
+        }
+        return true;
+      })
+      .map((loc) => loc.trim());
+
+    if (validLocations.length === 0) {
+      console.warn('GeminiService: No valid locations provided, using generic location guidance');
+    }
+
+    // Task 6: Validate member count
+    if (!memberCount || typeof memberCount !== 'number' || memberCount < 1) {
+      console.warn('GeminiService: Invalid member count in context:', {
+        memberCount,
+        type: typeof memberCount,
+      });
+    }
+
+    // Build interest prompt section if no users have interests (subtask 2.3)
+    const interestPromptSection = !hasAnyInterests ? `
+IMPORTANT: Since no group members have specified interests, include one special suggestion:
+{
+  "title": "Add Interests for Better Suggestions",
+  "description": "Add interests on the profile page to get better suggestions! We'll be able to recommend activities tailored to what you and your friends enjoy.",
+  "location": "Profile Settings",
+  "category": "System",
+  "estimatedCost": 0,
+  "reasoning": "Personalized suggestions work best when we know what you enjoy",
+  "startTime": "${startTime.toISOString()}",
+  "endTime": "${endTime.toISOString()}"
+}
+` : '';
+
     return `You are an activity suggestion assistant for a group of young people planning to hang out together.
 
 Context:
 - Date & Time: ${formattedStartTime} to ${formattedEndTime} (${timeOfDay})
 - Season: ${season}
-- Locations: ${locations.join(', ') || 'Not specified'}
-- Group Size: ${memberCount} people
-- Interests: ${interests.join(', ') || 'Not specified'}
+- Locations: ${validLocations.length > 0 ? validLocations.join(', ') : 'Not specified'}
+- Group Size: ${memberCount > 0 ? memberCount : 1} people
 
+Group Members and Their Interests:
+${userInterestsFormatted}
+${interestPromptSection}
 Generate ${count} diverse activity suggestions that would appeal to young people in this context.
 
 For each activity, provide:
@@ -169,15 +266,41 @@ For each activity, provide:
 3. location: Specific venue or area in one of the provided locations
 4. category: Type of activity (e.g., Food & Drink, Sports, Arts, Entertainment, Outdoor, Social)
 5. estimatedCost: Approximate cost per person in EUR (number only)
-6. reasoning: 1-2 sentences explaining why this activity fits the group
+6. reasoning: PERSONALIZED explanation referencing specific users and their interests (subtask 2.2)
+   - Format: "[User name] enjoys [interest] so they would love this event"
+   - Example: "Steve enjoys Biking so he would love this mountain trail ride"
+   - If multiple users share an interest: "Steve and Sarah both enjoy Art so they would love this gallery opening"
+   - Make it personal and specific to the group members
+7. startTime: Realistic start time within the available window (ISO format)
+8. endTime: Realistic end time based on typical activity duration (ISO format)
+
+IMPORTANT - Realistic Time Frames (subtask 2.4):
+- DO NOT use the entire time slot duration for each activity
+- Consider typical activity lengths:
+  * Coffee/drinks: 1-2 hours
+  * Dinner: 2-3 hours
+  * Movie: 2-3 hours
+  * Sports activity: 1-3 hours
+  * Museum/gallery: 2-4 hours
+  * Concert/show: 2-4 hours
+  * Outdoor activity: 2-6 hours
+  * Workshop/class: 2-3 hours
+- Start times should be within the available window
+- Activities can start at different times within the slot
+- Be realistic about what can be accomplished in the time available
+- Example for a long slot (2:00 PM - 10:00 PM):
+  * Activity 1: Lunch at 2:00 PM - 4:00 PM (2 hours)
+  * Activity 2: Museum visit at 3:00 PM - 6:00 PM (3 hours)
+  * Activity 3: Dinner at 6:00 PM - 9:00 PM (3 hours)
 
 Consider:
 - Time of day (morning activities vs evening activities)
 - Season (indoor vs outdoor based on weather)
-- Local culture and venues in ${locations.join(', ') || 'the area'}
+- Local culture and venues in ${validLocations.length > 0 ? validLocations.join(', ') : 'the area'}
 - Budget-friendly options for young people
 - Mix of active and relaxed activities
 - Social bonding opportunities
+- PERSONALIZE based on the specific interests of group members
 
 Return ONLY a valid JSON array with no additional text:
 [
@@ -187,7 +310,9 @@ Return ONLY a valid JSON array with no additional text:
     "location": "...",
     "category": "...",
     "estimatedCost": 0,
-    "reasoning": "..."
+    "reasoning": "[User] enjoys [interest] so they would love this...",
+    "startTime": "2024-01-15T14:00:00Z",
+    "endTime": "2024-01-15T16:00:00Z"
   }
 ]`;
   }
@@ -252,6 +377,7 @@ Return ONLY a valid JSON array with no additional text:
   private static validateActivity(activity: any): boolean {
     // Check if activity is an object
     if (!activity || typeof activity !== 'object') {
+      console.warn('GeminiService: Activity is not an object:', typeof activity);
       return false;
     }
 
@@ -265,6 +391,87 @@ Return ONLY a valid JSON array with no additional text:
       activity.estimatedCost >= 0;
     const hasValidReasoning = typeof activity.reasoning === 'string' && activity.reasoning.trim().length > 0;
 
+    // Task 6: Validate time parsing and provide fallbacks
+    // Validate time fields (new for task 3.2)
+    let hasValidStartTime = false;
+    let hasValidEndTime = false;
+
+    if (typeof activity.startTime === 'string') {
+      const parsedStart = Date.parse(activity.startTime);
+      hasValidStartTime = !isNaN(parsedStart);
+
+      if (!hasValidStartTime) {
+        console.warn('GeminiService: Invalid startTime format:', {
+          title: activity.title,
+          startTime: activity.startTime,
+        });
+      }
+    } else {
+      console.warn('GeminiService: startTime is not a string:', {
+        title: activity.title,
+        startTimeType: typeof activity.startTime,
+      });
+    }
+
+    if (typeof activity.endTime === 'string') {
+      const parsedEnd = Date.parse(activity.endTime);
+      hasValidEndTime = !isNaN(parsedEnd);
+
+      if (!hasValidEndTime) {
+        console.warn('GeminiService: Invalid endTime format:', {
+          title: activity.title,
+          endTime: activity.endTime,
+        });
+      }
+    } else {
+      console.warn('GeminiService: endTime is not a string:', {
+        title: activity.title,
+        endTimeType: typeof activity.endTime,
+      });
+    }
+
+    // Validate time logic: startTime must be before endTime
+    let validTimeRange = true;
+    if (hasValidStartTime && hasValidEndTime) {
+      try {
+        const start = new Date(activity.startTime);
+        const end = new Date(activity.endTime);
+        validTimeRange = start < end;
+
+        if (!validTimeRange) {
+          console.warn('GeminiService: Invalid time range (start >= end):', {
+            title: activity.title,
+            startTime: activity.startTime,
+            endTime: activity.endTime,
+          });
+        }
+
+        // Task 6: Additional validation for reasonable duration
+        const durationMs = end.getTime() - start.getTime();
+        const durationHours = durationMs / (1000 * 60 * 60);
+
+        if (durationHours < 0.5) {
+          console.warn('GeminiService: Activity duration too short (< 30 min):', {
+            title: activity.title,
+            durationHours: durationHours.toFixed(2),
+          });
+          validTimeRange = false;
+        } else if (durationHours > 12) {
+          console.warn('GeminiService: Activity duration too long (> 12 hours):', {
+            title: activity.title,
+            durationHours: durationHours.toFixed(2),
+          });
+          validTimeRange = false;
+        }
+      } catch (error) {
+        console.warn('GeminiService: Error validating time range:', {
+          title: activity.title,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        validTimeRange = false;
+      }
+    }
+
     // Additional validation: check for reasonable field lengths
     const titleTooLong = activity.title && activity.title.length > 200;
     const descriptionTooLong = activity.description && activity.description.length > 1000;
@@ -272,6 +479,7 @@ Return ONLY a valid JSON array with no additional text:
 
     if (titleTooLong || descriptionTooLong || costTooHigh) {
       console.warn('GeminiService: Activity has unreasonable field values:', {
+        title: activity.title,
         titleLength: activity.title?.length,
         descriptionLength: activity.description?.length,
         cost: activity.estimatedCost,
@@ -279,13 +487,34 @@ Return ONLY a valid JSON array with no additional text:
       return false;
     }
 
-    return (
+    // Task 6: Log detailed validation failure reasons
+    const isValid = (
       hasValidTitle &&
       hasValidDescription &&
       hasValidLocation &&
       hasValidCategory &&
       hasValidCost &&
-      hasValidReasoning
+      hasValidReasoning &&
+      hasValidStartTime &&
+      hasValidEndTime &&
+      validTimeRange
     );
+
+    if (!isValid) {
+      console.warn('GeminiService: Activity failed validation:', {
+        title: activity.title || 'N/A',
+        hasValidTitle,
+        hasValidDescription,
+        hasValidLocation,
+        hasValidCategory,
+        hasValidCost,
+        hasValidReasoning,
+        hasValidStartTime,
+        hasValidEndTime,
+        validTimeRange,
+      });
+    }
+
+    return isValid;
   }
 }

@@ -39,10 +39,10 @@ export async function getCurrentUser() {
 export async function requireAuth() {
   const { userId } = await auth();
 
-  console.log('[requireAuth] Clerk userId:', userId);
+  // console.log('[requireAuth] Clerk userId:', userId);
 
   if (!userId) {
-    console.log('[requireAuth] No Clerk userId found - user not authenticated');
+    // console.log('[requireAuth] No Clerk userId found - user not authenticated');
     return {
       error: true,
       response: NextResponse.json(
@@ -53,7 +53,7 @@ export async function requireAuth() {
   }
 
   try {
-    console.log('[requireAuth] Looking up user in database:', userId);
+    // console.log('[requireAuth] Looking up user in database:', userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -64,7 +64,7 @@ export async function requireAuth() {
     });
 
     if (!user) {
-      console.log('[requireAuth] User not found in database:', userId);
+      // console.log('[requireAuth] User not found in database:', userId);
       return {
         error: true,
         response: NextResponse.json(
@@ -74,7 +74,7 @@ export async function requireAuth() {
       };
     }
 
-    console.log('[requireAuth] User authenticated successfully:', user.id);
+    // console.log('[requireAuth] User authenticated successfully:', user.id);
     return {
       error: false,
       user,

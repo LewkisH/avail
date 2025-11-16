@@ -10,16 +10,16 @@ import { GoogleCalendarService } from '@/lib/services/google-calendar.service';
  * - error: Error code if user denied access
  */
 export async function GET(request: NextRequest) {
-  // Enhanced logging for debugging
-  console.log('=== GOOGLE OAUTH CALLBACK HIT ===');
-  console.log('Timestamp:', new Date().toISOString());
-  console.log('Full URL:', request.url);
-  console.log('Method:', request.method);
-  console.log('Headers:', {
-    host: request.headers.get('host'),
-    referer: request.headers.get('referer'),
-    userAgent: request.headers.get('user-agent'),
-  });
+  // // Enhanced logging for debugging
+  // console.log('=== GOOGLE OAUTH CALLBACK HIT ===');
+  // console.log('Timestamp:', new Date().toISOString());
+  // console.log('Full URL:', request.url);
+  // console.log('Method:', request.method);
+  // console.log('Headers:', {
+  //   host: request.headers.get('host'),
+  //   referer: request.headers.get('referer'),
+  //   userAgent: request.headers.get('user-agent'),
+  // });
 
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');

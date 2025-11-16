@@ -66,10 +66,10 @@ export async function GET(
   // Parse timezone offset (in minutes, negative for ahead of UTC)
   const timezoneOffset = timezoneOffsetParam ? parseInt(timezoneOffsetParam) : 0;
 
-  console.log('=== GET Availability Date Parsing ===');
-  console.log('Date param:', dateParam);
-  console.log('Timezone offset param:', timezoneOffsetParam);
-  console.log('Parsed timezone offset:', timezoneOffset);
+  // console.log('=== GET Availability Date Parsing ===');
+  // console.log('Date param:', dateParam);
+  // console.log('Timezone offset param:', timezoneOffsetParam);
+  // console.log('Parsed timezone offset:', timezoneOffset);
 
   // The date string represents midnight in the user's LOCAL timezone
   // We need to convert it TO UTC for database queries
@@ -81,14 +81,14 @@ export async function GET(
     0, 0, 0, 0
   ));
 
-  console.log('Date as UTC midnight:', date.toISOString());
+  // console.log('Date as UTC midnight:', date.toISOString());
 
   // Add the timezone offset to convert local midnight to UTC
   // For UTC+2 (offset=-120), this subtracts 2 hours to get 22:00 previous day in UTC
   date.setMinutes(date.getMinutes() + timezoneOffset);
 
-  console.log('Date converted to UTC:', date.toISOString());
-  console.log('Date local string:', date.toString());
+  // console.log('Date converted to UTC:', date.toISOString());
+  // console.log('Date local string:', date.toString());
   
   if (isNaN(date.getTime())) {
     return NextResponse.json(
@@ -247,10 +247,10 @@ export async function POST(
     // Parse timezone offset (in minutes, negative for ahead of UTC)
     const timezoneOffset = timezoneOffsetParam !== undefined ? parseInt(timezoneOffsetParam) : 0;
 
-    console.log('=== POST Calculate Availability Date Parsing ===');
-    console.log('Date param:', dateParam);
-    console.log('Timezone offset param:', timezoneOffsetParam);
-    console.log('Parsed timezone offset:', timezoneOffset);
+    // console.log('=== POST Calculate Availability Date Parsing ===');
+    // console.log('Date param:', dateParam);
+    // console.log('Timezone offset param:', timezoneOffsetParam);
+    // console.log('Parsed timezone offset:', timezoneOffset);
 
     // The date string represents midnight in the user's LOCAL timezone
     // We need to convert it TO UTC for database queries
@@ -261,14 +261,14 @@ export async function POST(
       0, 0, 0, 0
     ));
 
-    console.log('Date as UTC midnight:', date.toISOString());
+    // console.log('Date as UTC midnight:', date.toISOString());
 
     // Add the timezone offset to convert local midnight to UTC
     // For UTC+2 (offset=-120), this subtracts 2 hours to get 22:00 previous day in UTC
     date.setMinutes(date.getMinutes() + timezoneOffset);
 
-    console.log('Date converted to UTC:', date.toISOString());
-    console.log('Date local string:', date.toString());
+    // console.log('Date converted to UTC:', date.toISOString());
+    // console.log('Date local string:', date.toString());
     
     if (isNaN(date.getTime())) {
       return NextResponse.json(
@@ -282,7 +282,7 @@ export async function POST(
       );
     }
 
-    console.log('Calling calculateGroupAvailability with date:', date.toISOString());
+    // console.log('Calling calculateGroupAvailability with date:', date.toISOString());
 
     // Verify group exists and has enough members
     const { PrismaClient } = await import("@prisma/client");

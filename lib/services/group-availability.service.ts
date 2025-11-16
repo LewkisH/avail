@@ -37,9 +37,9 @@ export class GroupAvailabilityService {
     date: Date,
     txOrPrisma: typeof prisma | any = prisma
   ): Promise<Map<string, TimeRange[]>> {
-    console.log("=== findFreeTimeWindows ===");
-    console.log("Input date:", date.toISOString());
-    console.log("Input date local:", date.toString());
+    // console.log("=== findFreeTimeWindows ===");
+    // console.log("Input date:", date.toISOString());
+    // console.log("Input date local:", date.toString());
 
     // Set up date boundaries (start and end of the day)
     // The date parameter already represents the start of the day in the user's timezone (in UTC)
@@ -49,8 +49,8 @@ export class GroupAvailabilityService {
     const dayStart = new Date(date.getTime());
     const dayEnd = new Date(date.getTime() + 24 * 60 * 60 * 1000 - 1); // Add 24 hours minus 1ms
 
-    console.log("Day start:", dayStart.toISOString(), "/", dayStart.toString());
-    console.log("Day end:", dayEnd.toISOString(), "/", dayEnd.toString());
+    // console.log("Day start:", dayStart.toISOString(), "/", dayStart.toString());
+    // console.log("Day end:", dayEnd.toISOString(), "/", dayEnd.toString());
 
     // Fetch all calendar events for all users on this date
     const events = await txOrPrisma.calendarEvent.findMany({
@@ -64,14 +64,14 @@ export class GroupAvailabilityService {
       },
     });
 
-    console.log(
-      `Found ${events.length} events:`,
-      events.map((e: CalendarEvent) => ({
-        start: e.startTime.toISOString(),
-        end: e.endTime.toISOString(),
-        userId: e.userId,
-      }))
-    );
+    // console.log(
+    //   `Found ${events.length} events:`,
+    //   events.map((e: CalendarEvent) => ({
+    //     start: e.startTime.toISOString(),
+    //     end: e.endTime.toISOString(),
+    //     userId: e.userId,
+    //   }))
+    // );
 
     // Fetch user sleep times
     const userSleepTimes = await txOrPrisma.userSleepTime.findMany({
@@ -92,7 +92,7 @@ export class GroupAvailabilityService {
       });
     }
 
-    console.log(`Found ${userSleepTimes.length} user sleep times`);
+    // console.log(`Found ${userSleepTimes.length} user sleep times`);
 
     // Group events by user
     const eventsByUser = new Map<string, TimeRange[]>();
@@ -111,39 +111,39 @@ export class GroupAvailabilityService {
     }
 
     // Log busy times (calendar events) for each user
-    console.log("=== BUSY TIMES (Calendar Events) ===");
-    for (const [userId, userEvents] of eventsByUser.entries()) {
-      const calendarEvents = events.filter(
-        (e: CalendarEvent) => e.userId === userId
-      );
-      if (calendarEvents.length > 0) {
-        console.log(`User ${userId}:`);
-        calendarEvents.forEach((event: CalendarEvent, index: number) => {
-          console.log(
-            `  [${index + 1}] ${event.startTime.toISOString()} → ${event.endTime.toISOString()}`
-          );
-          console.log(
-            `      Local: ${event.startTime.toString()} → ${event.endTime.toString()}`
-          );
-        });
-      } else {
-        console.log(`User ${userId}: No calendar events`);
-      }
-    }
+    // console.log("=== BUSY TIMES (Calendar Events) ===");
+    // for (const [userId, userEvents] of eventsByUser.entries()) {
+    //   const calendarEvents = events.filter(
+    //     (e: CalendarEvent) => e.userId === userId
+    //   );
+    //   if (calendarEvents.length > 0) {
+    //     // console.log(`User ${userId}:`);
+    //     calendarEvents.forEach((event: CalendarEvent, index: number) => {
+    //       // console.log(
+    //       //   `  [${index + 1}] ${event.startTime.toISOString()} → ${event.endTime.toISOString()}`
+    //       // );
+    //       // console.log(
+    //       //   `      Local: ${event.startTime.toString()} → ${event.endTime.toString()}`
+    //       // );
+    //     });
+    //   } else {
+    //     // console.log(`User ${userId}: No calendar events`);
+    //   }
+    // }
 
-    // Log sleep times for each user
-    console.log("\n=== SLEEP TIMES (UTC) ===");
-    for (const userId of userIds) {
-      const sleepTime = sleepTimeByUser.get(userId);
-      if (sleepTime) {
-        console.log(
-          `User ${userId}: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC in HH:MM format)`
-        );
-      } else {
-        console.log(`User ${userId}: No sleep time configured`);
-      }
-    }
-    console.log("");
+    // // Log sleep times for each user
+    // console.log("\n=== SLEEP TIMES (UTC) ===");
+    // for (const userId of userIds) {
+    //   const sleepTime = sleepTimeByUser.get(userId);
+    //   if (sleepTime) {
+    //     console.log(
+    //       `User ${userId}: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC in HH:MM format)`
+    //     );
+    //   } else {
+    //     console.log(`User ${userId}: No sleep time configured`);
+    //   }
+    // }
+    // console.log("");
 
     // Add sleep time as busy time for each user
     for (const userId of userIds) {
@@ -158,13 +158,13 @@ export class GroupAvailabilityService {
         .map(Number);
       const [endHour, endMinute] = sleepTime.endTime.split(":").map(Number);
 
-      console.log(`User ${userId} - Sleep time conversion:`);
-      console.log(
-        `  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`
-      );
-      console.log(
-        `  Day window: ${dayStart.toISOString()} → ${dayEnd.toISOString()}`
-      );
+      // console.log(`User ${userId} - Sleep time conversion:`);
+      // console.log(
+      //   `  Input: ${sleepTime.startTime} → ${sleepTime.endTime} (stored as UTC HH:MM)`
+      // );
+      // console.log(
+      //   `  Day window: ${dayStart.toISOString()} → ${dayEnd.toISOString()}`
+      // );
 
       const periodsToAdd: Array<{ startTime: Date; endTime: Date }> = [];
 
@@ -211,27 +211,27 @@ export class GroupAvailabilityService {
       // 2. Check today's sleep (starts on our day)
       const todaySleep = createSleepPeriod(dayStart);
 
-      console.log(
-        `  Today's sleep: ${todaySleep.start.toISOString()} → ${todaySleep.end.toISOString()}`
-      );
+      // console.log(
+      //   `  Today's sleep: ${todaySleep.start.toISOString()} → ${todaySleep.end.toISOString()}`
+      // );
 
       if (todaySleep.end > dayStart && todaySleep.start < dayEnd) {
         const overlapStart =
           todaySleep.start < dayStart ? dayStart : todaySleep.start;
         const overlapEnd = todaySleep.end > dayEnd ? dayEnd : todaySleep.end;
         periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
-        console.log(
-          `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
-        );
+        // console.log(
+        //   `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
+        // );
       }
 
       // 3. Check tomorrow's sleep (might start during our day)
       const tomorrowBase = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
       const tomorrowSleep = createSleepPeriod(tomorrowBase);
 
-      console.log(
-        `  Tomorrow's sleep: ${tomorrowSleep.start.toISOString()} → ${tomorrowSleep.end.toISOString()}`
-      );
+      // console.log(
+      //   `  Tomorrow's sleep: ${tomorrowSleep.start.toISOString()} → ${tomorrowSleep.end.toISOString()}`
+      // );
 
       if (tomorrowSleep.end > dayStart && tomorrowSleep.start < dayEnd) {
         const overlapStart =
@@ -239,36 +239,36 @@ export class GroupAvailabilityService {
         const overlapEnd =
           tomorrowSleep.end > dayEnd ? dayEnd : tomorrowSleep.end;
         periodsToAdd.push({ startTime: overlapStart, endTime: overlapEnd });
-        console.log(
-          `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
-        );
+        // console.log(
+        //   `    ✓ Overlaps with day: ${overlapStart.toISOString()} → ${overlapEnd.toISOString()}`
+        // );
       }
 
       // Add all overlapping sleep periods to user events
-      console.log(`  periodsToAdd count: ${periodsToAdd.length}`);
+      // console.log(`  periodsToAdd count: ${periodsToAdd.length}`);
       for (const period of periodsToAdd) {
-        console.log(
-          `  Adding sleep period: ${period.startTime.toISOString()} → ${period.endTime.toISOString()}`
-        );
+        // console.log(
+        //   `  Adding sleep period: ${period.startTime.toISOString()} → ${period.endTime.toISOString()}`
+        // );
         userEvents.push(period);
       }
 
       eventsByUser.set(userId, userEvents);
-      console.log(
-        `  Total events for user after adding sleep: ${userEvents.length}`
-      );
+      // console.log(
+      //   `  Total events for user after adding sleep: ${userEvents.length}`
+      // );
     }
-    console.log("");
+    // console.log("");
 
     // Calculate free time for each user
-    console.log("=== CALCULATING FREE TIME ===");
+    // console.log("=== CALCULATING FREE TIME ===");
     const freeTimeByUser = new Map<string, TimeRange[]>();
 
     for (const userId of userIds) {
       const userEvents = eventsByUser.get(userId) || [];
-      console.log(
-        `User ${userId} has ${userEvents.length} total events (calendar + sleep)`
-      );
+      // console.log(
+      //   `User ${userId} has ${userEvents.length} total events (calendar + sleep)`
+      // );
       const freeWindows: TimeRange[] = [];
 
       if (userEvents.length === 0) {
@@ -340,25 +340,25 @@ export class GroupAvailabilityService {
         }
       }
 
-      console.log(
-        `User ${userId} - Free time windows (${freeWindows.length}):`
-      );
-      if (freeWindows.length === 0) {
-        console.log(`  No free time available`);
-      } else {
-        freeWindows.forEach((window, index) => {
-          console.log(
-            `  [${index + 1}] ${window.startTime.toISOString()} → ${window.endTime.toISOString()}`
-          );
-          console.log(
-            `      Local: ${window.startTime.toString()} → ${window.endTime.toString()}`
-          );
-        });
-      }
+      // console.log(
+      //   `User ${userId} - Free time windows (${freeWindows.length}):`
+      // );
+      // if (freeWindows.length === 0) {
+      //   console.log(`  No free time available`);
+      // } else {
+      //   freeWindows.forEach((window, index) => {
+      //     console.log(
+      //       `  [${index + 1}] ${window.startTime.toISOString()} → ${window.endTime.toISOString()}`
+      //     );
+      //     console.log(
+      //       `      Local: ${window.startTime.toString()} → ${window.endTime.toString()}`
+      //     );
+      //   });
+      // }
 
       freeTimeByUser.set(userId, freeWindows);
     }
-    console.log("");
+    // console.log("");
 
     return freeTimeByUser;
   }

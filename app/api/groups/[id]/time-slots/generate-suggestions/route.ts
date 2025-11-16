@@ -277,9 +277,18 @@ export async function POST(
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+      });
+
+      // Sort suggestions with external events first
+      suggestions = suggestions.sort((a, b) => {
+        const aIsExternal = !!a.externalEventId;
+        const bIsExternal = !!b.externalEventId;
+
+        if (aIsExternal && !bIsExternal) return -1;
+        if (!aIsExternal && bIsExternal) return 1;
+
+        // Within same type, sort by creation time (most recent first)
+        return b.createdAt.getTime() - a.createdAt.getTime();
       });
     } catch (error) {
       console.error("Error fetching suggestions:", error);
@@ -350,6 +359,7 @@ export async function POST(
         cost: suggestion.cost ? Number(suggestion.cost) : null,
         reasoning: suggestion.reasoning,
         externalEventId: suggestion.externalEventId,
+        isExternalEvent: !!suggestion.externalEventId,
         imageUrl: suggestion.externalEvent?.imageUrl || null,
         participants: suggestion.participants,
         hasJoined: suggestion.interests.some(
