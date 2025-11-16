@@ -26,10 +26,23 @@ interface GroupEvent {
 interface TimeSlotEventsSectionProps {
   events: GroupEvent[];
   onJoinEvent?: (eventId: string) => Promise<void>;
+  groupId?: string;
+  startTime?: Date;
+  endTime?: Date;
+  onSuggestionsGenerated?: (suggestions: GroupEvent[]) => void;
 }
 
-export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSectionProps) {
+export function TimeSlotEventsSection({
+  events,
+  onJoinEvent,
+  groupId,
+  startTime,
+  endTime,
+  onSuggestionsGenerated,
+}: TimeSlotEventsSectionProps) {
   const [joiningEventId, setJoiningEventId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const formatEventTime = (startTime: Date, endTime: Date) => {
     const formatTime = (date: Date) => format(date, 'HH:mm');
 
@@ -51,16 +64,97 @@ export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSec
       .slice(0, 2);
   };
 
+  const handleGenerateSuggestions = async () => {
+    if (!groupId || !startTime || !endTime) {
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationError(null);
+
+    try {
+      const response = await fetch(
+        `/api/groups/${groupId}/time-slots/generate-suggestions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to generate suggestions');
+      }
+
+      const data = await response.json();
+
+      // Convert date strings to Date objects
+      const newSuggestions = data.suggestions.map((suggestion: any) => ({
+        ...suggestion,
+        startTime: new Date(suggestion.startTime),
+        endTime: new Date(suggestion.endTime),
+      }));
+
+      // Call the callback to update the parent component
+      if (onSuggestionsGenerated) {
+        onSuggestionsGenerated(newSuggestions);
+      }
+    } catch (err) {
+      console.error('Error generating suggestions:', err);
+      setGenerationError(
+        err instanceof Error ? err.message : 'Failed to generate suggestions'
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const shouldShowAIButton = events.length < 6 && groupId && startTime && endTime;
+
   if (events.length === 0) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">No events scheduled</p>
+        {shouldShowAIButton && (
+          <Button
+            onClick={handleGenerateSuggestions}
+            disabled={isGenerating}
+            className="w-full bg-orange-600 hover:bg-orange-700"
+          >
+            {isGenerating ? (
+              <>
+                <span className="animate-spin mr-2">⚙️</span>
+                Generating...
+              </>
+            ) : (
+              'Generate AI Suggestions'
+            )}
+          </Button>
+        )}
+        {generationError && (
+          <div className="space-y-2">
+            <p className="text-sm text-destructive">{generationError}</p>
+            <Button
+              onClick={handleGenerateSuggestions}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         {events.slice(0, 6).map((event) => (
           <div
@@ -98,7 +192,7 @@ export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSec
 
             <div className="flex flex-col gap-3 mt-auto">
               <div className="h-7 flex items-center -space-x-2">
-                {event.participants.slice(0, 3).map((participant) => (
+                {event.participants && event.participants.slice(0, 3).map((participant) => (
                   <div
                     key={participant.id}
                     className="relative rounded-full ring-2 ring-background overflow-hidden"
@@ -111,7 +205,7 @@ export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSec
                     </Avatar>
                   </div>
                 ))}
-                {event.participants.length > 3 && (
+                {event.participants && event.participants.length > 3 && (
                   <div className="relative rounded-full ring-2 ring-background bg-neutral-700 h-7 w-7 flex items-center justify-center">
                     <span className="text-xs text-neutral-200">
                       +{event.participants.length - 3}
@@ -140,6 +234,38 @@ export function TimeSlotEventsSection({ events, onJoinEvent }: TimeSlotEventsSec
           </div>
         ))}
       </div>
+
+      {shouldShowAIButton && (
+        <div className="space-y-2">
+          <Button
+            onClick={handleGenerateSuggestions}
+            disabled={isGenerating}
+            className="w-full bg-orange-600 hover:bg-orange-700"
+          >
+            {isGenerating ? (
+              <>
+                <span className="animate-spin mr-2">⚙️</span>
+                Generating...
+              </>
+            ) : (
+              'Generate AI Suggestions'
+            )}
+          </Button>
+          {generationError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{generationError}</p>
+              <Button
+                onClick={handleGenerateSuggestions}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

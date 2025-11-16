@@ -152,6 +152,17 @@ export function TimeSlotModal({
     }
   };
 
+  // Handle suggestions generated callback
+  const handleSuggestionsGenerated = (newSuggestions: GroupEvent[]) => {
+    setEvents((prevEvents) => {
+      // Merge new suggestions with existing ones, avoiding duplicates
+      const existingIds = new Set(prevEvents.map(e => e.id));
+      const uniqueNewSuggestions = newSuggestions.filter(s => !existingIds.has(s.id));
+      return [...prevEvents, ...uniqueNewSuggestions];
+    });
+    toast.success(`Generated ${newSuggestions.length} new activity suggestions!`);
+  };
+
   if (!timeSlot) {
     return null;
   }
@@ -198,7 +209,14 @@ export function TimeSlotModal({
             </div>
           ) : (
             <>
-              <TimeSlotEventsSection events={events} onJoinEvent={handleJoinEvent} />
+                  <TimeSlotEventsSection
+                    events={events}
+                    onJoinEvent={handleJoinEvent}
+                    groupId={groupId}
+                    startTime={timeSlot.startTime}
+                    endTime={timeSlot.endTime}
+                    onSuggestionsGenerated={handleSuggestionsGenerated}
+                  />
 
                   <Separator />
 
